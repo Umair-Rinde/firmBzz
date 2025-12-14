@@ -20,10 +20,10 @@ export function Navbar() {
       <div className="container flex h-16 items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-            <span className="text-lg font-bold text-primary-foreground">F</span>
+            <span className="text-lg font-bold text-primary-foreground">AE</span>
           </div>
           <span className="font-heading text-xl font-bold text-foreground">
-            FirmBizz
+            Anmol Enterprises
           </span>
         </Link>
 

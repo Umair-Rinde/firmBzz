@@ -7,7 +7,6 @@ import { products } from "@/data/products";
 import { 
   ArrowRight, 
   Truck, 
-  Package,
   Users,
   CheckCircle2,
   MapPin,
@@ -16,7 +15,6 @@ import {
   Shield,
   Milk,
   IceCream,
-  Calendar,
   Store,
   ClipboardCheck,
   BadgePercent
@@ -63,7 +61,7 @@ const operatingVillages = [
     { value: "50+", label: "Daily Deliveries", icon: Truck },
     { value: "100%", label: "Fresh Products", icon: Milk },
     { value: "24/7", label: "Order Support", icon: Phone }
-  ];
+  ];    
 
   const productCategories = [
     {
