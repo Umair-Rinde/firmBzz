@@ -1,0 +1,3 @@
+﻿src/components/layout/DashboardLayout.tsx(16,51): error TS2307: Cannot find module '@/components/ui/sheet' or its corresponding type declarations.
+src/pages/dashboard/SuperRetailerOrders.tsx(41,21): error TS2322: Type 'true | "" | "indeterminate"' is not assignable to type 'CheckedState'.
+  Type '""' is not assignable to type 'CheckedState'.
