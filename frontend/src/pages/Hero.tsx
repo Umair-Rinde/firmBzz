@@ -4,9 +4,9 @@ import { Button } from "@/components/ui/button";
 import { ProductCard, Product } from "@/components/products/ProductCard";
 import { ProductModal } from "@/components/products/ProductModal";
 import { products } from "@/data/products";
-import { 
-  ArrowRight, 
-  Truck, 
+import {
+  ArrowRight,
+  Truck,
   Users,
   CheckCircle2,
   MapPin,
@@ -17,7 +17,7 @@ import {
   IceCream,
   Store,
   ClipboardCheck,
-  BadgePercent
+  BadgePercent,
 } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
@@ -27,89 +27,95 @@ const Index = () => {
   const [modalOpen, setModalOpen] = useState(false);
 
   const featuredProducts = products.slice(0, 4);
-  
-  // Villages where you operate
-const operatingVillages = [
-  // Mangaon Taluka
-  "Mangaon",
-  "Goregaon (Raigad)",
-  "Indapur",
-  "Lonere",
-  "Kolad",
-  "Nizampur",
-  "Tala",
-  "Roha",
 
-  // Mahad Taluka
-  "Mahad",
-  "Dasgaon",
-  "Birwadi",
-  "Tamhini",
-  "Poladpur",
-  "Kemburli",
-  "Shirgaon"
-];
+  // Villages where you operate
+  const operatingVillages = [
+    // Mangaon Taluka
+    "Mangaon",
+    "Goregaon (Raigad)",
+    "Indapur",
+    "Lonere",
+    "Kolad",
+    "Nizampur",
+    "Tala",
+    "Roha",
+
+    // Mahad Taluka
+    "Mahad",
+    "Dasgaon",
+    "Birwadi",
+    "Tamhini",
+    "Poladpur",
+    "Kemburli",
+    "Shirgaon",
+  ];
 
   const serviceAreas = [
-  { name: "Mangaon Taluka", count: 8, icon: MapPin },
-  { name: "Mahad Taluka", count: 7, icon: MapPin }
-];
-
+    { name: "Mangaon Taluka", count: 8, icon: MapPin },
+    { name: "Mahad Taluka", count: 7, icon: MapPin },
+  ];
 
   const businessStats = [
     { value: "500+", label: "Retail Shops Served", icon: Store },
     { value: "50+", label: "Daily Deliveries", icon: Truck },
     { value: "100%", label: "Fresh Products", icon: Milk },
-    { value: "24/7", label: "Order Support", icon: Phone }
-  ];    
+    { value: "24/7", label: "Order Support", icon: Phone },
+  ];
 
   const productCategories = [
     {
       icon: Milk,
       title: "Fresh Dairy Products",
-      items: ["Milk", "Curd", "Paneer", "Butter", "Ghee", "Cream"]
+      items: ["Milk", "Curd", "Paneer", "Butter", "Ghee", "Cream"],
     },
     {
       icon: IceCream,
       title: "Ice Cream Supplies",
-      items: ["Ice Cream Cones", "Scoops", "Toppings", "Syrups", "Wafers", "Cups"]
+      items: [
+        "Ice Cream Cones",
+        "Scoops",
+        "Toppings",
+        "Syrups",
+        "Wafers",
+        "Cups",
+      ],
     },
     {
-  icon: IceCream,
-  title: "Frozen Items",
-  items: [
-    "Frozen Ice Cream Blocks",
-    "Kulfi Sticks",
-    "Frozen Desserts",
-    "Ice Candy",
-    "Frozen Milk Products",
-    "Deep Freezer Supplies"
-  ]
-}
-
+      icon: IceCream,
+      title: "Frozen Items",
+      items: [
+        "Frozen Ice Cream Blocks",
+        "Kulfi Sticks",
+        "Frozen Desserts",
+        "Ice Candy",
+        "Frozen Milk Products",
+        "Deep Freezer Supplies",
+      ],
+    },
   ];
 
   const processSteps = [
     {
       icon: Phone,
       title: "Place Order",
-      description: "Call or WhatsApp your order, or speak to our visiting salesman"
+      description:
+        "Call or WhatsApp your order, or speak to our visiting salesman",
     },
     {
       icon: ClipboardCheck,
       title: "Order Confirmation",
-      description: "We confirm stock availability and delivery time"
+      description: "We confirm stock availability and delivery time",
     },
     {
       icon: Truck,
       title: "Same Day Delivery",
-      description: "Fresh products delivered to your shop within hours"
+      description: "Fresh products delivered to your shop within hours",
     },
     {
       icon: BadgePercent,
       title: "Best Prices",
-      description: "Wholesale rates with volume discounts for retailers"
-    }
+      description: "Wholesale rates with volume discounts for retailers",
+    },
   ];
 
   return (
@@ -141,20 +147,29 @@ const operatingVillages = [
               </h1>
 
               <p className="mt-6 text-lg text-gray-700">
-                Serving 500+ retail shops in Gurgaon with fresh dairy products, 
+                Serving 500+ retail shops in Gurgaon with fresh dairy products,
                 ice cream supplies, and packaging materials at wholesale prices.
                 Our sales team visits shops daily to take your orders.
               </p>
 
               <div className="mt-8 flex flex-wrap gap-4">
-                <Button asChild size="lg" className="bg-blue-600 hover:bg-blue-700">
+                <Button
+                  asChild
+                  size="lg"
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
                   <Link to="/products">
                     <Phone className="mr-2 h-5 w-5" />
                     Order Now: 98765-43210
                   </Link>
                 </Button>
 
-                <Button asChild variant="outline" size="lg" className="border-blue-300">
+                <Button
+                  asChild
+                  variant="outline"
+                  size="lg"
+                  className="border-blue-300"
+                >
                   <Link to="/retailers">
                     <Store className="mr-2 h-5 w-5" />
                     Register Your Shop
@@ -166,11 +181,13 @@ const operatingVillages = [
               <div className="mt-10">
                 <div className="flex items-center gap-2 mb-3">
                   <MapPin className="h-5 w-5 text-blue-600" />
-                  <span className="font-semibold text-gray-800">Serving Areas:</span>
+                  <span className="font-semibold text-gray-800">
+                    Serving Areas:
+                  </span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {operatingVillages.slice(0, 6).map((village) => (
-                    <span 
+                    <span
                       key={village}
                       className="px-3 py-1.5 bg-white/80 backdrop-blur-sm rounded-full text-sm border border-blue-100"
                     >
@@ -184,26 +201,32 @@ const operatingVillages = [
             {/* Stats Cards */}
             <div className="grid grid-cols-2 gap-6">
               {businessStats.map((stat, index) => (
-                <div 
+                <div
                   key={stat.label}
                   className={`bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-blue-100 shadow-lg ₹{
                     index === 0 ? "col-span-2" : ""
                   }`}
                 >
                   <div className="flex items-center gap-4">
-                    <div className={`p-3 rounded-xl ₹{
+                    <div
+                      className={`p-3 rounded-xl ₹{
                       index === 0 ? "bg-blue-100" : 
                       index === 1 ? "bg-green-100" : 
                       index === 2 ? "bg-amber-100" : "bg-purple-100"
-                    }`}>
-                      <stat.icon className={`h-6 w-6 ₹{
+                    }`}
+                    >
+                      <stat.icon
+                        className={`h-6 w-6 ₹{
                         index === 0 ? "text-blue-600" : 
                         index === 1 ? "text-green-600" : 
                         index === 2 ? "text-amber-600" : "text-purple-600"
-                      }`} />
+                      }`}
+                      />
                     </div>
                     <div>
-                      <div className="text-2xl font-bold text-gray-900">{stat.value}</div>
+                      <div className="text-2xl font-bold text-gray-900">
+                        {stat.value}
+                      </div>
                       <div className="text-sm text-gray-600">{stat.label}</div>
                     </div>
                   </div>
@@ -237,7 +260,9 @@ const operatingVillages = [
                     <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold">
                       {index + 1}
                     </div>
-                    <h3 className="text-xl font-bold text-gray-900">{step.title}</h3>
+                    <h3 className="text-xl font-bold text-gray-900">
+                      {step.title}
+                    </h3>
                   </div>
                   <p className="text-gray-600">{step.description}</p>
                 </div>
@@ -261,7 +286,7 @@ const operatingVillages = [
 
           <div className="mt-16 grid md:grid-cols-3 gap-8">
             {productCategories.map((category) => (
-              <div 
+              <div
                 key={category.title}
                 className="bg-white rounded-2xl p-8 shadow-lg border border-gray-200 hover:border-blue-300 transition-colors"
               >
@@ -269,9 +294,11 @@ const operatingVillages = [
                   <div className="p-3 rounded-xl bg-blue-50">
                     <category.icon className="h-8 w-8 text-blue-600" />
                   </div>
-                  <h3 className="text-2xl font-bold text-gray-900">{category.title}</h3>
+                  <h3 className="text-2xl font-bold text-gray-900">
+                    {category.title}
+                  </h3>
                 </div>
-                
+
                 <div className="space-y-3">
                   {category.items.map((item) => (
                     <div key={item} className="flex items-center gap-3">
@@ -281,7 +308,11 @@ const operatingVillages = [
                   ))}
                 </div>
 
-                <Button asChild variant="outline" className="w-full mt-8 border-blue-300">
+                <Button
+                  asChild
+                  variant="outline"
+                  className="w-full mt-8 border-blue-300"
+                >
                   <Link to="/products">
                     View All {category.title}
                     <ArrowRight className="ml-2 h-4 w-4" />
@@ -297,9 +328,7 @@ const operatingVillages = [
       <section className="py-20 bg-gradient-to-r from-blue-50 to-amber-50">
         <div className="container">
           <div className="text-center max-w-3xl mx-auto">
-            <h2 className="text-4xl font-bold text-gray-900">
-              Areas We Serve
-            </h2>
+            <h2 className="text-4xl font-bold text-gray-900">Areas We Serve</h2>
             <p className="mt-4 text-lg text-gray-600">
               Our sales team visits shops in these locations daily
             </p>
@@ -307,25 +336,30 @@ const operatingVillages = [
 
           <div className="mt-12 grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {serviceAreas.map((area) => (
-              <div key={area.name} className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 border border-gray-200">
+              <div
+                key={area.name}
+                className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 border border-gray-200"
+              >
                 <div className="flex items-center gap-4 mb-4">
                   <area.icon className="h-8 w-8 text-blue-600" />
-                  <h3 className="text-2xl font-bold text-gray-900">{area.name}</h3>
+                  <h3 className="text-2xl font-bold text-gray-900">
+                    {area.name}
+                  </h3>
                 </div>
-                <div className="text-3xl font-bold text-blue-700">{area.count}+</div>
+                <div className="text-3xl font-bold text-blue-700">
+                  {area.count}+
+                </div>
                 <div className="text-gray-600">Villages/Sectors</div>
-                
+
                 <div className="mt-6 pt-6 border-t border-gray-200">
                   <div className="text-sm text-gray-500">Sample Areas:</div>
                   <div className="mt-2 space-y-1">
-                    {operatingVillages
-                      .slice(0, 3)
-                      .map((village) => (
-                        <div key={village} className="flex items-center gap-2">
-                          <MapPin className="h-3 w-3 text-gray-400" />
-                          <span className="text-sm text-gray-700">{village}</span>
-                        </div>
-                      ))}
+                    {operatingVillages.slice(0, 3).map((village) => (
+                      <div key={village} className="flex items-center gap-2">
+                        <MapPin className="h-3 w-3 text-gray-400" />
+                        <span className="text-sm text-gray-700">{village}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -334,10 +368,15 @@ const operatingVillages = [
 
           {/* Full villages list */}
           <div className="mt-12 bg-white rounded-2xl p-8 border border-gray-200">
-            <h3 className="text-xl font-bold text-gray-900 mb-6">Complete Coverage Areas:</h3>
+            <h3 className="text-xl font-bold text-gray-900 mb-6">
+              Complete Coverage Areas:
+            </h3>
             <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {operatingVillages.map((village) => (
-                <div key={village} className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
+                <div
+                  key={village}
+                  className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg"
+                >
                   <MapPin className="h-4 w-4 text-blue-500" />
                   <span className="text-gray-700">{village}</span>
                 </div>
@@ -369,7 +408,10 @@ const operatingVillages = [
 
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {featuredProducts.map((product) => (
-              <div key={product.id} className="bg-white rounded-2xl overflow-hidden shadow-lg border border-gray-200">
+              <div
+                key={product.id}
+                className="bg-white rounded-2xl overflow-hidden shadow-lg border border-gray-200"
+              >
                 <ProductCard
                   product={product}
                   onViewDetails={(p) => {
@@ -380,7 +422,9 @@ const operatingVillages = [
                 <div className="p-4 border-t border-gray-200">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-500">MOQ: 50 units</span>
-                    <span className="text-sm font-semibold text-green-600">Bulk discount available</span>
+                    <span className="text-sm font-semibold text-green-600">
+                      Bulk discount available
+                    </span>
                   </div>
                 </div>
               </div>
@@ -394,14 +438,12 @@ const operatingVillages = [
         <div className="container">
           <div className="max-w-4xl mx-auto text-center text-white">
             <Shield className="h-16 w-16 mx-auto mb-6" />
-            <h2 className="text-4xl font-bold">
-              Ready to Stock Your Shop?
-            </h2>
+            <h2 className="text-4xl font-bold">Ready to Stock Your Shop?</h2>
             <p className="mt-4 text-xl opacity-90">
-              Join 500+ retailers who trust us for their daily supplies.
-              Get fresh products delivered to your shop every day.
+              Join 500+ retailers who trust us for their daily supplies. Get
+              fresh products delivered to your shop every day.
             </p>
-            
+
             <div className="mt-10 grid sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
               <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6">
                 <Clock className="h-8 w-8 mx-auto mb-4" />
@@ -409,7 +451,7 @@ const operatingVillages = [
                 <p className="opacity-90">Daily: 7 AM - 8 PM</p>
                 <p className="opacity-90">Sunday: 8 AM - 6 PM</p>
               </div>
-              
+
               <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6">
                 <Users className="h-8 w-8 mx-auto mb-4" />
                 <h3 className="text-xl font-bold mb-2">Contact Sales</h3>
@@ -419,8 +461,8 @@ const operatingVillages = [
             </div>
 
             <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
-              <Button 
-                size="lg" 
+              <Button
+                size="lg"
                 className="bg-white text-blue-600 hover:bg-gray-100 h-14 px-8 rounded-xl"
                 asChild
               >
@@ -429,11 +471,11 @@ const operatingVillages = [
                   Call Now to Order
                 </Link>
               </Button>
-              
-              <Button 
-                size="lg" 
-                variant="outline" 
-                className="border-white text-white hover:bg-white/10 h-14 px-8 rounded-xl"
+
+              <Button
+                size="lg"
+                variant="outline"
+                className="bg-white text-blue-600 hover:bg-gray-100 h-14 px-8 rounded-xl"
                 asChild
               >
                 <Link to="/retailers">
