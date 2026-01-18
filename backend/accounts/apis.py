@@ -1,9 +1,11 @@
+
+from django.conf import settings
 from django.contrib.auth import authenticate
 from portal.base import BaseResponse
-from rest_framework_simplejwt.tokens import RefreshToken
-import serializers
-import choices
-
+import jwt
+import datetime
+from . import serializers
+from . import choices
 
 class AuthService:
 
@@ -35,13 +37,22 @@ class AuthService:
                 status=403
             )
 
-        refresh = RefreshToken.for_user(user)
+        # Generate Access Token
+        access_token_payload = {
+            "user_id": user.id,
+            "exp": datetime.datetime.utcnow() + datetime.timedelta(days=1),
+            "iat": datetime.datetime.utcnow(),
+        }
+        access_token = jwt.encode(
+            access_token_payload, 
+            settings.JWT_SECRET_KEY, 
+            algorithm=settings.JWT_ALGORITHM
+        )
 
         return BaseResponse(
             message="Login successful",
             data={
-                "access_token": str(refresh.access_token),
-                "refresh_token": str(refresh),
+                "access_token": access_token,
                 "user": {
                     "id": user.id,
                     "username": user.username,

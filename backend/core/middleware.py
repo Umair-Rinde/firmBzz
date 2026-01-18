@@ -1,9 +1,41 @@
 import jwt
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.http import JsonResponse
+from rest_framework import status
 
+User = get_user_model()
 
 class AuthMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response 
 
     def __call__(self, request):
-        return ''
+        if request.path in settings.EXCLUDED_PATHS:
+             return self.get_response(request)
+
+        auth_header = request.headers.get('Authorization')
+        
+        if not auth_header:
+            return self.get_response(request)
+
+        try:
+            prefix, token = auth_header.split(' ')
+            if prefix.lower() != 'bearer':
+                 raise ValueError("Invalid token prefix")
+            
+            payload = jwt.decode(
+                token, 
+                settings.JWT_SECRET_KEY, 
+                algorithms=[settings.JWT_ALGORITHM]
+            )
+            
+            user = User.objects.get(id=payload['user_id'])
+            request.user = user
+            
+        except (ValueError, jwt.ExpiredSignatureError, jwt.InvalidTokenError, User.DoesNotExist):
+            # If token is invalid, we don't necessarily want to block 
+            # (unless specific paths require checking request.user.is_authenticated later)
+             pass
+
+        return self.get_response(request)
