@@ -18,6 +18,19 @@ class FirmCreateAPIView(APIView):
         return apis.FirmService.create_firm(request.data)
 
 
+class FirmListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    schema = AutoSchema()
+
+    @extend_schema(
+        summary="List Firms",
+        description="Retrieve a list of all firms.",
+        tags=["Firm"]
+    )
+    def get(self, request):
+        return apis.FirmService.list_firms()
+
+
 class FirmDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]
     schema = AutoSchema()

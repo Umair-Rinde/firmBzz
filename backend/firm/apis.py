@@ -42,6 +42,15 @@ class FirmService:
             )
 
     @staticmethod
+    def list_firms():
+        firms = Firm.objects.all()
+        serializer = FirmSerializer(firms, many=True)
+        return BaseResponse(
+            data=serializer.data,
+            status=200
+        )
+
+    @staticmethod
     def add_user_to_firm(slug, data):
         try:
             firm = Firm.objects.get(slug=slug)

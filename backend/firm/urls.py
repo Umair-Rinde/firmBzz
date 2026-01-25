@@ -3,6 +3,7 @@ from . import routes
 
 urlpatterns = [
     path('setup/', routes.FirmCreateAPIView.as_view()),
+    path('all/', routes.FirmListAPIView.as_view()),
     path('<slug:slug>/', routes.FirmDetailAPIView.as_view()),
     path('<slug:slug>/products/', routes.ProductListCreateAPIView.as_view()),
     path('<slug:slug>/users/', routes.FirmUserCreateAPIView.as_view()),
