@@ -80,18 +80,24 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
-
-
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": env("DATABASE_NAME"),
-        "USER": env("DATABASE_USER"),
-        "PASSWORD": env("DATABASE_PASS"),
-        "HOST": env("DATABASE_HOST"),
-        "PORT": env("DATABASE_PORT"),
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': os.path.join('BASE_DIR' , 'db.sqlite3'),
     }
 }
+
+
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.postgresql",
+#         "NAME": env("DATABASE_NAME"),
+#         "USER": env("DATABASE_USER"),
+#         "PASSWORD": env("DATABASE_PASS"),
+#         "HOST": env("DATABASE_HOST"),
+#         "PORT": env("DATABASE_PORT"),
+#     }
+# }
 
 AUTH_USER_MODEL = "accounts.User"
 
