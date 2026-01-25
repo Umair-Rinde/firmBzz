@@ -8,13 +8,13 @@ environ.Env.read_env()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-SECRET_KEY = env("DJANGO_SECRET_KEY")
+SECRET_KEY = env("DJANGO_SECRET_KEY", default="t=cn#*!a-1+gkz@0d&9_xpa8#3$aj)x%ubf(0-rmslmma__=y5")
 
 DEBUG = env("DJANGO_DEBUG", default=False)
 
 ALLOWED_HOSTS = ["*"]
 
-JWT_SECRET_KEY = env("DJANGO_JWT_SECRET_KEY")
+JWT_SECRET_KEY = env("DJANGO_JWT_SECRET_KEY",default="pOkxE2zh2oRkySr7ZtR5mS2zRxlJVHHpjIlQ451KUKR")
 JWT_ALGORITHM = "HS256"
 
 SECURE_SSL_REDIRECT = env("SECURE_SSL_REDIRECT", default=False)
