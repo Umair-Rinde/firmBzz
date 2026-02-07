@@ -11,9 +11,15 @@ SECRET_KEY = 'django-insecure-yqw*dmmjhm5c(p!!1j%@4(vz6!@^_8mo&h7ve7z=$zo1ou^0z^
 
 DEBUG = True
 
+JWT_SECRET_KEY = env("JWT_SECRET_KEY")
+JWT_ALGORITHM = "HS256"
+
 ALLOWED_HOSTS = ['*']
 
-
+EXCLUDED_PATHS = [
+    "/api/accounts/login/",
+    "/api/accounts/create/",
+]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -22,21 +28,39 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',
 
     #custom apps
     'accounts',
     'portal',
+    'firm'
 ]
 
+
+AUTH_USER_MODEL = "accounts.User"
+
+# MIDDLEWARE = [
+#     'django.middleware.security.SecurityMiddleware',
+#     'django.contrib.sessions.middleware.SessionMiddleware',
+#     'django.middleware.common.CommonMiddleware',
+#     'django.middleware.csrf.CsrfViewMiddleware',
+#     'django.contrib.auth.middleware.AuthenticationMiddleware',
+#     'django.contrib.messages.middleware.MessageMiddleware',
+#     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+#     'core.middleware.AuthMiddleware',
+# ]
+
+
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'core.middleware.AuthMiddleware',
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    # "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "core.middleware.AuthMiddleware",
 ]
 
 ROOT_URLCONF = 'core.urls'
@@ -59,7 +83,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
-
+ALLOWED_METHODS = ['*']
 
 DATABASES = {
     "default": {
@@ -111,7 +135,3 @@ CORS_ALLOW_HEADERS = [
 ]
 CORS_ORIGIN_ALLOW_ALL = True
 CORS_ALLOW_CREDENTIALS = True
-
-EXCLUDED_PATHS = [
-    "/api/auth/login/",
-]
