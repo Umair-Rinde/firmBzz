@@ -18,7 +18,7 @@ class FirmCreateAPIView(APIView):
     def delete(self, request, slug):
         return apis.FirmService.delete_firm(slug)
     
-    def update(self, request, slug):
+    def put(self, request, slug):
         return apis.FirmService.update_firm(slug, request.data)
 
 

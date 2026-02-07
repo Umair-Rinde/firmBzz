@@ -4,16 +4,13 @@ from .models import Firm, Product, Customer, Vendor, ProductBatch, VendorOrder, 
 class FirmSerializer(serializers.ModelSerializer):
     class Meta:
         model = Firm
-        fields = ["id", "name", "code", "slug", "is_active", "created_on"]
+        fields = "__all__"
         read_only_fields = ["slug", "created_on", "is_active"]
 
 class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
-        fields = [
-            "id", "name", "slug", "description", "hsn_code", "image",
-            "category", "firm", "created_on"
-        ]
+        fields = "__all__"
         read_only_fields = ["slug", "firm", "created_on"]
 
 
@@ -23,13 +20,7 @@ class ProductBatchSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = ProductBatch
-        fields = [
-            "id", "product", "product_name", "vendor", "vendor_name", "slug",
-            "batch_number", "manufacturing_date", "expiry_date",
-            "received_date", "quantity_received", "quantity_remaining",
-            "cost_price", "selling_price_super_seller", "selling_price_distributor",
-            "created_on"
-        ]
+        fields = "__all__"
         read_only_fields = ["slug", "created_on"]
 
 
@@ -38,23 +29,14 @@ class CustomerSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Customer
-        fields = [
-            "id", "firm", "slug", "customer_type", "customer_type_display",
-            "business_name", "owner_name", "fssai_number", "gst_number",
-            "fssai_expiry", "gst_expiry", "whatsapp_number", "contact_number",
-            "business_address", "email", "created_on"
-        ]
+        fields = "__all__"
         read_only_fields = ["slug", "firm", "created_on"]
 
 
 class VendorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Vendor
-        fields = [
-            "id", "firm", "slug", "vendor_name", "owner_name", "gst_number",
-            "gst_expiry", "whatsapp_number", "telephone_number", "address",
-            "bank_account_number", "ifsc_code", "email", "created_on"
-        ]
+        fields = "__all__"
         read_only_fields = ["slug", "firm", "created_on"]
 
 
@@ -64,12 +46,7 @@ class VendorOrderItemSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = VendorOrderItem
-        fields = [
-            "id", "product", "product_name", "quantity_ordered", "quantity_received",
-            "cost_price_per_unit", "selling_price_super_seller", "selling_price_distributor",
-            "batch_number", "manufacturing_date", "expiry_date", "total_cost",
-            "product_batch", "created_on"
-        ]
+        fields = "__all__"
         read_only_fields = ["created_on", "product_batch"]
 
 
@@ -82,12 +59,7 @@ class VendorOrderSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = VendorOrder
-        fields = [
-            "id", "firm", "vendor", "vendor_name", "slug", "order_number", "order_date",
-            "vendor_invoice_number", "total_amount", "amount_paid", "payment_status",
-            "payment_status_display", "order_status", "order_status_display",
-            "notes", "received_date", "outstanding_amount", "items", "created_on"
-        ]
+        fields = "__all__"
         read_only_fields = ["slug", "firm", "created_on"]
 
 
