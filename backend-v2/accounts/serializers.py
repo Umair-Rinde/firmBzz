@@ -16,6 +16,12 @@ class UserCreateSerializer(serializers.ModelSerializer):
             "phone",
             "gender",
             "user_type",
+            "date_of_birth",
+            "address",
+            "city",
+            "state",
+            "country",
+            "pincode",
         ]
 
     def create(self, validated_data):
