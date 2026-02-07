@@ -11,17 +11,16 @@ class AuthMiddleware:
 
     def __call__(self, request):
         token = request.headers.get("Authorization")
-        print(settings.EXCLUDED_PATHS)
-        print(request.path)
+        print(token)
         if request.path.startswith("/api") and request.path not in settings.EXCLUDED_PATHS:
             if not token:
                 return JsonResponse(
                     data={"msg": "Token not provided"}, status=403
                 )
             try:
-                jwt_data = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=settings.JWT_ALGORITHM)
+                jwt_data = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
                 request.user = User.objects.get(id=jwt_data.get("user_id"))
-                print("user")
+
                 response = self.get_response(request)
                 return response
             except:
@@ -32,3 +31,7 @@ class AuthMiddleware:
         return response
 
 
+
+class DisableCSRFCheck(MiddlewareMixin):
+    def process_request(self, request):
+        setattr(request, '_dont_enforce_csrf_checks', True)

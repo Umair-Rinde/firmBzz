@@ -52,6 +52,7 @@ AUTH_USER_MODEL = "accounts.User"
 
 
 MIDDLEWARE = [
+    'core.middleware.DisableCSRFCheck',
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
