@@ -8,19 +8,20 @@ environ.Env.read_env()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-SECRET_KEY = env("DJANGO_SECRET_KEY", default="t=cn#*!a-1+gkz@0d&9_xpa8#3$aj)x%ubf(0-rmslmma__=y5")
+DJANGO_SECRET_KEY="django-insecure-9xk4%p7v!s@3q^c2m&6z#y$8r_5=+w@a!e0nq^%l7h*b"
 
 DEBUG = env("DJANGO_DEBUG", default=False)
 
 ALLOWED_HOSTS = ["*"]
 
-JWT_SECRET_KEY = env("DJANGO_JWT_SECRET_KEY",default="pOkxE2zh2oRkySr7ZtR5mS2zRxlJVHHpjIlQ451KUKR")
+DJANGO_JWT_SECRECT_KEY = "pOkxE2zh2oRkySr7ZtR5mS2zRxlJVHHpjIlQ451KUKR"
 JWT_ALGORITHM = "HS256"
 
 SECURE_SSL_REDIRECT = env("SECURE_SSL_REDIRECT", default=False)
 SESSION_COOKIE_SECURE = env("SESSION_COOKIE_SECURE", default=False)
 CSRF_COOKIE_SECURE = env("CSRF_COOKIE_SECURE", default=False)
 
+AUTH_USER_MODEL = "accounts.User"
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -83,7 +84,7 @@ REST_FRAMEWORK = {
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join('BASE_DIR' , 'db.sqlite3'),
+        'NAME': os.path.join(BASE_DIR , 'db.sqlite3'),
     }
 }
 
@@ -151,8 +152,10 @@ CORS_ORIGIN_ALLOW_ALL = True
 CORS_ALLOW_CREDENTIALS = True
 
 EXCLUDED_PATHS = [
-    "login/",
-    "media",
+    "/accounts/login/",
+    "/api/docs/",
+    "/media/",
+    "/admin/",
 ]
 
 

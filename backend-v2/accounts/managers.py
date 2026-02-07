@@ -27,9 +27,9 @@ class  UserManager(BaseUserManager):
             full_name=full_name,
             password=password,
         )
-        user.gender=gender
+        user.gender=gender,
         user.is_admin = True    
         user.is_active = True
-        user.user_type = UserTypeChoices.OWNER
         user.save(using=self._db) 
+        user.user_type = UserTypeChoices.ADMIN
         return user

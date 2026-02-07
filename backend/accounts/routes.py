@@ -6,16 +6,15 @@ from drf_spectacular.utils import extend_schema
 
 
 class LoginAPIView(APIView):
-    authentication_classes = []  
-    permission_classes = []
     schema = AutoSchema()
-
-    @extend_schema(
-        summary="User Login",
-        description="Authenticate user with username and password and return a JWT access token.",
-        tags=["Accounts"]
-    )
+    print("here")
+    # @extend_schema(
+    #     summary="User Login",
+    #     description="Authenticate user with username and password and return a JWT access token.",
+    #     tags=["Accounts"]
+    # )
     def post(self, request):
+        print("here2")
         return apis.AuthService.login(request.data)
 
 

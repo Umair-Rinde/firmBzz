@@ -12,7 +12,7 @@ class AuthMiddleware:
 
     def __call__(self, request):
         if request.path in settings.EXCLUDED_PATHS:
-             return self.get_response(request)
+                return self.get_response(request)
 
         auth_header = request.headers.get('Authorization')
         
@@ -26,7 +26,7 @@ class AuthMiddleware:
             
             payload = jwt.decode(
                 token, 
-                settings.JWT_SECRET_KEY, 
+                settings.DJANGO_JWT_SECRECT_KEY, 
                 algorithms=[settings.JWT_ALGORITHM]
             )
             

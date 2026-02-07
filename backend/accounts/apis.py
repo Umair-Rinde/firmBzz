@@ -11,17 +11,18 @@ class AuthService:
 
     @staticmethod
     def login(data):
-        username = data.get("username")
+        email = data.get("email")
         password = data.get("password")
 
-        if not username or not password:
+        if not email or not password:
             return BaseResponse(
                 success=False,
-                message="Username and password required",
+                message="Email and password required",
                 status=400
             )
 
-        user = authenticate(username=username, password=password)
+        user = authenticate(email=email, password=password)
+        print("user", user)
 
         if not user:
             return BaseResponse(
