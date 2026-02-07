@@ -4,6 +4,7 @@ from portal.base import BaseResponse
 from .serializers import (
     UserSerializer,
     UserCreateSerializer,
+    UserUpdateSerializer,
 )
 from django.conf import settings
 from .models import User
@@ -99,7 +100,7 @@ class UserCreateAPI(APIView):
         if not id:
             return BaseResponse(message="User ID is required", status=400, success=False)
         user = User.objects.get(id=id)
-        serializer = UserCreateSerializer(user, data=request.data)
+        serializer = UserUpdateSerializer(user, data=request.data)
         if serializer.is_valid():
             serializer.save()
             return BaseResponse(

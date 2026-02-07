@@ -14,7 +14,7 @@ class User(AbstractBaseUser):
     phone = models.CharField(max_length=15)
     gender = models.CharField(max_length=10,choices=GenderChoices.choices, null=True, blank=True)
     user_type = models.CharField(max_length=20,choices=UserTypeChoices.choices, default = UserTypeChoices.FIRM_USER)    
-    date_of_birth = models.DateField(null=True, blank=True)
+    date_of_birth = models.DateTimeField(null=True, blank=True)
     registered_on = models.DateTimeField(auto_now_add=True)
   
 
