@@ -52,7 +52,7 @@ class UserCreateAPI(APIView):
             success=False,
         )
 
-    def get(self,id, request, *args, **kwargs):
+    def get(self, request, id=None, *args, **kwargs):
         if not id:
             return BaseResponse(message="User ID is required", status=400, success=False)
         if id == 'list':
