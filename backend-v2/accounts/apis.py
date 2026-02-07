@@ -58,9 +58,10 @@ class UserCreateAPI(APIView):
         if id == 'list':
             users = User.objects.all()
             user_data = UserSerializer(users, many=True).data
+            data = {"rows": user_data,"count": users.count()}
             return BaseResponse(
                 message="Users Fetched Successfully",
-                data=user_data,
+                data=data,
                 status=200,
                 success=True,
             )
