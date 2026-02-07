@@ -95,7 +95,7 @@ class UserCreateAPI(APIView):
             success=True,
         )   
     
-    def update(self,id, request, *args, **kwargs):
+    def put(self,id, request, *args, **kwargs):
         if not id:
             return BaseResponse(message="User ID is required", status=400, success=False)
         user = User.objects.get(id=id)
