@@ -4,5 +4,7 @@ from .apis import UserLoginAPI, UserCreateAPI
 urlpatterns = [
     path("login/", UserLoginAPI.as_view(), name="user_login"),
     path("create/", UserCreateAPI.as_view(), name="user_signup"),
-    path("get/<str:id>/", UserCreateAPI.as_view(), name="user_get"),
+    path("<str:id>/get/", UserCreateAPI.as_view(), name="user_get"),
+    path("<str:id>/update/", UserCreateAPI.as_view(), name="user_update"),
+    path("<str:id>/delete/", UserCreateAPI.as_view(), name="user_delete"),
 ]

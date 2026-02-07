@@ -73,11 +73,43 @@ class UserCreateAPI(APIView):
                 status=200,
                 success=True,
             )
-        user = User.objects.get(id=id)
-        user_data = UserSerializer(user).data
+        else:
+            user = User.objects.get(id=id)
+            user_data = UserSerializer(user).data
         return BaseResponse(
             message="User Fetched Successfully",
             data=user_data,
             status=200,
             success=True,
+        )
+    
+    def delete(self,id, request, *args, **kwargs):
+        if not id:
+            return BaseResponse(message="User ID is required", status=400, success=False)
+        user = User.objects.get(id=id)
+        user.delete()
+        return BaseResponse(
+            message="User Deleted Successfully",
+            status=200,
+            success=True,
+        )   
+    
+    def update(self,id, request, *args, **kwargs):
+        if not id:
+            return BaseResponse(message="User ID is required", status=400, success=False)
+        user = User.objects.get(id=id)
+        serializer = UserCreateSerializer(user, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return BaseResponse(
+                message="User Updated Successfully",
+                data=serializer.data,
+                status=200,
+                success=True,
+            )
+        return BaseResponse(
+            message="User Update Failed",
+            data=serializer.errors,
+            status=400,
+            success=False,
         )
