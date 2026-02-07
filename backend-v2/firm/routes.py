@@ -144,3 +144,15 @@ class VendorOrderReceiveAPIView(APIView):
     def post(self, request, slug, order_id):
         return apis.VendorOrderService.receive_order(slug, order_id)
 
+
+
+class DropdownAPIView(APIView):
+    schema = AutoSchema()
+
+    @extend_schema(
+        summary="Get Dropdown Data",
+        description="Retrieve dropdown data for a specific firm.",
+        tags=["Dropdown"]
+    )
+    def get(self, request):
+        return apis.DropdownsService.get_firm_dropdowns()

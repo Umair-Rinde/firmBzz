@@ -40,6 +40,13 @@ class VendorSerializer(serializers.ModelSerializer):
         read_only_fields = ["slug", "firm", "created_on"]
 
 
+class FirmDropdownSerializer(serializers.ModelSerializer):
+    label = serializers.CharField(source="name")
+    value = serializers.CharField(source="slug")
+
+    class Meta:
+        model = Firm
+        fields = ("label", "value")
 class VendorOrderItemSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
     total_cost = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)

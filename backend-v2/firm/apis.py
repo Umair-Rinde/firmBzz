@@ -1,7 +1,7 @@
 from .models import Firm, Product
 from .serializers import (
     FirmSerializer, ProductSerializer, VendorOrderSerializer, 
-    VendorOrderCreateSerializer
+    VendorOrderCreateSerializer, FirmDropdownSerializer
 )
 from portal.base import BaseResponse
 from django.db import transaction
@@ -455,4 +455,23 @@ class VendorOrderService:
                     "batches_created": batches_created
                 },
                 status=200
+            )
+
+
+class DropdownsService: 
+    @staticmethod
+    def get_firm_dropdowns():
+        try:
+            firm = Firm.objects.all()
+            serializer = FirmDropdownSerializer(firm, many=True)
+            data = serializer.data
+            return BaseResponse(
+                data=data,
+                status=200
+            )
+        except Exception as e:
+            return BaseResponse(
+                success=False,
+                message=str(e),
+                status=500
             )

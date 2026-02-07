@@ -4,7 +4,7 @@ from . import routes
 urlpatterns = [
     path('setup/', routes.FirmCreateAPIView.as_view()),
     path('all/', routes.FirmListAPIView.as_view()),
-    path('<slug:slug>/', routes.FirmDetailAPIView.as_view()),
+    # path('<slug:slug>/', routes.FirmDetailAPIView.as_view()),
     path('<slug:slug>/products/', routes.ProductListCreateAPIView.as_view()),
     path('<slug:slug>/users/', routes.FirmUserCreateAPIView.as_view()),
     
@@ -15,4 +15,6 @@ urlpatterns = [
 
     path('<slug:slug>/delete/', routes.FirmCreateAPIView.as_view()),
     path('<slug:slug>/update/', routes.FirmCreateAPIView.as_view()),
+
+    path('dropdowns/', routes.DropdownAPIView.as_view()),
 ]

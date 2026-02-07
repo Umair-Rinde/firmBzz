@@ -49,6 +49,8 @@ class User(AbstractBaseUser):
         return self.is_admin
     def has_perm(self, perm, obj=None):
         return self.is_admin
+
+
 class FirmUsers(BaseModel):
     user = models.OneToOneField(
         User, on_delete=models.CASCADE, related_name="firm_user"
