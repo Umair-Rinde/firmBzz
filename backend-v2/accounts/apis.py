@@ -51,3 +51,33 @@ class UserCreateAPI(APIView):
             status=400,
             success=False,
         )
+
+    def get(self,id, request, *args, **kwargs):
+        if not id:
+            return BaseResponse(message="User ID is required", status=400, success=False)
+        if id == 'list':
+            users = User.objects.all()
+            user_data = UserSerializer(users, many=True).data
+            return BaseResponse(
+                message="Users Fetched Successfully",
+                data=user_data,
+                status=200,
+                success=True,
+            )
+        if id == 'me':
+            user = User.objects.get(id=request.user.id)
+            user_data = UserSerializer(user).data
+            return BaseResponse(
+                message="User Fetched Successfully",
+                data=user_data,
+                status=200,
+                success=True,
+            )
+        user = User.objects.get(id=id)
+        user_data = UserSerializer(user).data
+        return BaseResponse(
+            message="User Fetched Successfully",
+            data=user_data,
+            status=200,
+            success=True,
+        )
