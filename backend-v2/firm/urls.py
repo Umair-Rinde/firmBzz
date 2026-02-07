@@ -12,4 +12,7 @@ urlpatterns = [
     path('<slug:slug>/vendor-orders/', routes.VendorOrderListCreateAPIView.as_view()),
     path('<slug:slug>/vendor-orders/<uuid:order_id>/', routes.VendorOrderDetailAPIView.as_view()),
     path('<slug:slug>/vendor-orders/<uuid:order_id>/receive/', routes.VendorOrderReceiveAPIView.as_view()),
+
+    path('<slug:slug>/delete/', routes.FirmDeleteAPIView.as_view()),
+    path('<slug:slug>/update/', routes.FirmUpdateAPIView.as_view()),
 ]

@@ -42,11 +42,52 @@ class FirmService:
             )
 
     @staticmethod
+    def update_firm(slug, data):
+        try:
+            firm = Firm.objects.get(slug=slug)
+        except Firm.DoesNotExist:
+            return BaseResponse(
+                success=False,
+                message="Firm not found",
+                status=404
+            )
+        serializer = FirmSerializer(firm, data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return BaseResponse(
+                message="Firm updated successfully",
+                data=serializer.data,
+                status=200
+            )
+        return BaseResponse(
+            success=False,
+            message="Invalid data",
+            errors=serializer.errors,
+            status=400
+        )
+
+    @staticmethod
+    def delete_firm(slug):
+        try:
+            firm = Firm.objects.get(slug=slug)
+        except Firm.DoesNotExist:
+            return BaseResponse(
+                success=False,
+                message="Firm not found",
+                status=404
+            )
+        firm.delete()
+        return BaseResponse(
+            message="Firm deleted successfully",
+            status=200
+        )
+
+    @staticmethod
     def list_firms():
         firms = Firm.objects.all()
         serializer = FirmSerializer(firms, many=True)
         return BaseResponse(
-            data=serializer.data,
+            data={"rows": serializer.data, "count": firms.count()},
             status=200
         )
 
@@ -65,11 +106,11 @@ class FirmService:
         data["firm"] = firm.id
         # Ensure user_type is FIRM_USER if not provided
         if "user_type" not in data:
-             # We need to import UserTypeChoices. 
-             # To avoid circular imports, maybe just string "FIRM_USER" if logic permits, 
-             # but better to import from accounts.choices
-             from accounts.choices import UserTypeChoices
-             data["user_type"] = UserTypeChoices.FIRM_USER
+            # We need to import UserTypeChoices. 
+            # To avoid circular imports, maybe just string "FIRM_USER" if logic permits, 
+            # but better to import from accounts.choices
+            from accounts.choices import UserTypeChoices
+            data["user_type"] = UserTypeChoices.FIRM_USER
         
         from accounts.serializers import UserCreateSerializer
         serializer = UserCreateSerializer(data=data)
@@ -128,10 +169,89 @@ class ProductService:
         products = Product.objects.filter(firm=firm)
         serializer = ProductSerializer(products, many=True)
         return BaseResponse(
-            data=serializer.data,
+            data={"rows": serializer.data, "count": products.count()},
             status=200
         )
 
+    @staticmethod
+    def delete_product(firm_slug, product_id):
+        try:
+            firm = Firm.objects.get(slug=firm_slug)
+        except Firm.DoesNotExist:
+            return BaseResponse(
+                success=False,
+                message="Firm not found",
+                status=404
+            )
+        try:
+            product = Product.objects.get(id=product_id)
+        except Product.DoesNotExist:
+            return BaseResponse(
+                success=False,
+                message="Product not found",
+                status=404
+            )
+        product.delete()
+        return BaseResponse(
+            message="Product deleted successfully",
+            status=200
+        )
+
+    @staticmethod
+    def list_one_product(firm_slug, product_id):
+        try:
+            firm = Firm.objects.get(slug=firm_slug)
+        except Firm.DoesNotExist:
+            return BaseResponse(
+                success=False,
+                message="Firm not found",
+                status=404
+            )
+        try:
+            product = Product.objects.get(id=product_id)
+        except Product.DoesNotExist:
+            return BaseResponse(
+                success=False,
+                message="Product not found",
+                status=404
+            )
+        serializer = ProductSerializer(product)
+        return BaseResponse(
+            data=serializer.data,
+            status=200
+        )
+    @staticmethod
+    def update_product(firm_slug, product_id, data):
+        try:
+            firm = Firm.objects.get(slug=firm_slug)
+        except Firm.DoesNotExist:
+            return BaseResponse(
+                success=False,
+                message="Firm not found",
+                status=404
+            )
+        try:
+            product = Product.objects.get(id=product_id)
+        except Product.DoesNotExist:
+            return BaseResponse(
+                success=False,
+                message="Product not found",
+                status=404
+            )
+        serializer = ProductSerializer(product, data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return BaseResponse(
+                message="Product updated successfully",
+                data=serializer.data,
+                status=200
+            )
+        return BaseResponse(
+            success=False,
+            message="Invalid data",
+            errors=serializer.errors,
+            status=400
+        )
 
 class VendorOrderService:
     @staticmethod
@@ -192,7 +312,7 @@ class VendorOrderService:
         
         serializer = VendorOrderSerializer(orders, many=True)
         return BaseResponse(
-            data=serializer.data,
+            data={"rows": serializer.data, "count": orders.count()},
             status=200
         )
     

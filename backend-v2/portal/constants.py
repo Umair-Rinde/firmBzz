@@ -5,9 +5,11 @@ OTHER = 'Other'
 
 #UserType Constants
 ADMIN = 'Admin'
-EMPLOYEE = 'Employee'
-EMPLOYER = 'Employer'
-BDM = 'BDM'
+FIRM_ADMIN = 'Firm Admin'
+FIRM_USER = 'Firm User'
+SUPERSELLER_USER = 'SuperSeller User'
+DISTRIBUTOR_USER = 'Distributor User'
+SALES_PERSON = 'Sales Person'
 
 #API Constants
 POST = "POST"
@@ -17,8 +19,3 @@ GET = "GET"
 GETALL = "GETALL"
 PATCH = "PATCH"
 
-FIRM_ADMIN = 'Firm Admin'
-FIRM_USER = 'Firm User'
-SUPERSELLER_USER = 'SuperSeller User'
-DISTRIBUTOR_USER = 'Distributor User'
-SALES_PERSON = 'Sales Person'

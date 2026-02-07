@@ -15,6 +15,12 @@ class FirmCreateAPIView(APIView):
     def post(self, request):
         return apis.FirmService.create_firm(request.data)
 
+    def delete(self, request, slug):
+        return apis.FirmService.delete_firm(slug)
+    
+    def update(self, request, slug):
+        return apis.FirmService.update_firm(slug, request.data)
+
 
 class FirmListAPIView(APIView):
     schema = AutoSchema()
