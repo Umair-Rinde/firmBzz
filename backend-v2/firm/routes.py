@@ -156,3 +156,14 @@ class DropdownAPIView(APIView):
     )
     def get(self, request):
         return apis.DropdownsService.get_firm_dropdowns()
+
+
+class ProductCrudView(APIView):
+    def get(self,request, slug, id):
+        return apis.ProductService.list_one_product(slug,id)
+    
+    def delete(self,request, slug, id):
+        return apis.ProductService.delete_product(slug,id)
+
+    def put(slef, request, slug, id ):
+        return apis.ProductService.update_product(slug,id, request.data)  

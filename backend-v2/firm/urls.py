@@ -6,6 +6,7 @@ urlpatterns = [
     path('all/', routes.FirmListAPIView.as_view()),
     # path('<slug:slug>/', routes.FirmDetailAPIView.as_view()),
     path('<slug:slug>/products/', routes.ProductListCreateAPIView.as_view()),
+    path('<slug:slug>/products/<uuid:id>/', routes.ProductCrudView.as_view()) ,
     path('<slug:slug>/users/', routes.FirmUserCreateAPIView.as_view()),
     
     # Vendor Order URLs
@@ -17,4 +18,4 @@ urlpatterns = [
     path('<slug:slug>/update/', routes.FirmCreateAPIView.as_view()),
 
     path('dropdowns/', routes.DropdownAPIView.as_view()),
-]
+] 
