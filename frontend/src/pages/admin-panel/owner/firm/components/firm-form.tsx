@@ -1,7 +1,11 @@
 import CustomButton from "@/components/ui/custom/custom-button";
 import { Drawer } from "@/components/ui/custom/custom-drawer";
+import CustomInput from "@/components/ui/custom/custom-input";
 import { axios } from "@/config/axios";
 import { queryClient } from "@/config/query-client";
+import { useQuery } from "@/hooks/useQuerry";
+import { FirmInterface } from "@/interfaces/firm";
+import { UserInterface } from "@/interfaces/user";
 import { useMutation } from "@tanstack/react-query";
 import { Form, Formik } from "formik";
 import { toast } from "sonner";
@@ -15,16 +19,19 @@ const FirmDrawer = ({
 }: {
   handleClose: () => void;
   id?: string;
-  row?: any;
+  row?: FirmInterface;
   open: boolean;
 }) => {
   //--------- validation schema -----------//
   const validationSchema = Yup.object().shape({});
 
   //-------- api call ---------//
+
   const { mutate, isPending } = useMutation({
     mutationFn: (data: any) =>
-      id ? axios.put(``, data) : axios.post("", data),
+      row
+        ? axios.put(`/firm/${row?.slug}/update/`, data)
+        : axios.post("/firm/setup/", data),
     onSuccess(data) {
       toast.success(data?.data?.data?.message || "Successful");
       handleClose();
@@ -38,7 +45,13 @@ const FirmDrawer = ({
   });
 
   //-------- initial values ---------//
-  const initialValues = {};
+  const initialValues = {
+    name: row?.name || "",
+    slug: row?.slug || "",
+    address: row?.address || "",
+    code: row?.code || "",
+    phone: row?.phone || "",
+  };
 
   return (
     <div>
@@ -52,15 +65,24 @@ const FirmDrawer = ({
             initialValues={initialValues}
             validateOnMount
             onSubmit={(values: any) => {
-              const data = {};
-              mutate(data);
+              mutate(values);
             }}
             validationSchema={validationSchema}
             enableReinitialize
           >
             {({ errors }) => (
               <Form>
-                <div className="flex gap-6 py-20  px-[20px] flex-wrap"></div>
+                <div className=" gap-6 py-20 grid grid-cols-1  px-[20px] ">
+                  <CustomInput name="name" label="Name" className="w-full" />
+                  <CustomInput name="slug" label="Slug" />
+                  <CustomInput name="address" label="Address" />
+                  <CustomInput name="code" label="Code" />
+                  <CustomInput
+                    name="phone"
+                    type="number"
+                    label="Phone number"
+                  />
+                </div>
 
                 <div className=" mx-[28px] bg-white  w-full  flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
                   <div className="flex absolute bg-white  bottom-0 right-0 border-t w-full justify-end items-center px-[28px] py-[16px] gap-5">
@@ -75,7 +97,7 @@ const FirmDrawer = ({
                       isPending={isPending}
                       disabled={isPending}
                     >
-                      {id ? "update" : "Add"}
+                      {row ? "update" : "Add"}
                     </CustomButton>
                   </div>
                 </div>
