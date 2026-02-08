@@ -107,3 +107,23 @@ class VendorOrderCreateSerializer(serializers.ModelSerializer):
                 VendorOrderItem.objects.create(order=instance, **item_data)
         
         return instance
+
+
+class VendorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Vendor
+        fields = [
+            "id",
+            "vendor_name",
+            "slug",
+            "owner_name",
+            "gst_number",
+            "gst_expiry",
+            "whatsapp_number",
+            "telephone_number",
+            "address",
+            "bank_account_number",
+            "ifsc_code",
+            "email",
+        ]
+        read_only_fields = ["id", "slug"]

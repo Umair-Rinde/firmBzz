@@ -1,7 +1,7 @@
-from .models import Firm, Product
+from .models import Firm, Product, Vendor,VendorOrder
 from .serializers import (
     FirmSerializer, ProductSerializer, VendorOrderSerializer, 
-    VendorOrderCreateSerializer, FirmDropdownSerializer
+    VendorOrderCreateSerializer, FirmDropdownSerializer, VendorSerializer
 )
 from portal.base import BaseResponse
 from django.db import transaction
@@ -475,3 +475,116 @@ class DropdownsService:
                 message=str(e),
                 status=500
             )
+
+
+
+class VendorService:
+
+    @staticmethod
+    def create_vendor(firm_slug, data):
+        try:
+            firm = Firm.objects.get(slug=firm_slug)
+        except Firm.DoesNotExist:
+            return BaseResponse(
+                success=False,
+                message="Firm not found",
+                status=404
+            )
+
+        serializer = VendorSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save(firm=firm)
+            return BaseResponse(
+                message="Vendor created successfully",
+                data=serializer.data,
+                status=201
+            )
+
+        return BaseResponse(
+            success=False,
+            message="Invalid data",
+            errors=serializer.errors,
+            status=400
+        )
+
+    @staticmethod
+    def list_vendors(firm_slug):
+        try:
+            firm = Firm.objects.get(slug=firm_slug)
+        except Firm.DoesNotExist:
+            return BaseResponse(
+                success=False,
+                message="Firm not found",
+                status=404
+            )
+
+        vendors = Vendor.objects.filter(firm=firm)
+        serializer = VendorSerializer(vendors, many=True)
+        return BaseResponse(
+            data={"rows": serializer.data, "count": vendors.count()},
+            status=200
+        )
+
+    @staticmethod
+    def get_vendor(firm_slug, vendor_id):
+        try:
+            firm = Firm.objects.get(slug=firm_slug)
+            vendor = Vendor.objects.get(id=vendor_id, firm=firm)
+        except (Firm.DoesNotExist, Vendor.DoesNotExist):
+            return BaseResponse(
+                success=False,
+                message="Vendor not found",
+                status=404
+            )
+
+        serializer = VendorSerializer(vendor)
+        return BaseResponse(
+            data=serializer.data,
+            status=200
+        )
+
+    @staticmethod
+    def update_vendor(firm_slug, vendor_id, data):
+        try:
+            firm = Firm.objects.get(slug=firm_slug)
+            vendor = Vendor.objects.get(id=vendor_id, firm=firm)
+        except (Firm.DoesNotExist, Vendor.DoesNotExist):
+            return BaseResponse(
+                success=False,
+                message="Vendor not found",
+                status=404
+            )
+
+        serializer = VendorSerializer(vendor, data=data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return BaseResponse(
+                message="Vendor updated successfully",
+                data=serializer.data,
+                status=200
+            )
+
+        return BaseResponse(
+            success=False,
+            message="Invalid data",
+            errors=serializer.errors,
+            status=400
+        )
+
+    @staticmethod
+    def delete_vendor(firm_slug, vendor_id):
+        try:
+            firm = Firm.objects.get(slug=firm_slug)
+            vendor = Vendor.objects.get(id=vendor_id, firm=firm)
+        except (Firm.DoesNotExist, Vendor.DoesNotExist):
+            return BaseResponse(
+                success=False,
+                message="Vendor not found",
+                status=404
+            )
+
+        vendor.delete()
+        return BaseResponse(
+            message="Vendor deleted successfully",
+            status=200
+        )

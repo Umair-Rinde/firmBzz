@@ -18,4 +18,7 @@ urlpatterns = [
     path('<slug:slug>/update/', routes.FirmCreateAPIView.as_view()),
 
     path('dropdowns/', routes.DropdownAPIView.as_view()),
+
+    path( '<slug:slug>/vendors/', routes.VendorListCreateAPIView.as_view()),
+    path( '<slug:slug>/vendors/<uuid:vendor_id>/',routes.VendorDetailAPIView.as_view()),
 ] 

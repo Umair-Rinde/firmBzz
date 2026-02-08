@@ -167,3 +167,50 @@ class ProductCrudView(APIView):
 
     def put(slef, request, slug, id ):
         return apis.ProductService.update_product(slug,id, request.data)  
+
+
+
+
+class VendorListCreateAPIView(APIView):
+    schema = AutoSchema()
+
+    @extend_schema(
+        summary="List Vendors",
+        description="List all vendors of a firm",
+        tags=["Vendors"]
+    )
+    def get(self, request, slug):
+        return apis.VendorService.list_vendors(slug)
+
+    @extend_schema(
+        summary="Create Vendor",
+        description="Create a new vendor for a firm",
+        tags=["Vendors"]
+    )
+    def post(self, request, slug):
+        return apis.VendorService.create_vendor(slug, request.data)
+
+
+class VendorDetailAPIView(APIView):
+    schema = AutoSchema()
+
+    @extend_schema(
+        summary="Get Vendor",
+        tags=["Vendors"]
+    )
+    def get(self, request, slug, vendor_id):
+        return apis.VendorService.get_vendor(slug, vendor_id)
+
+    @extend_schema(
+        summary="Update Vendor",
+        tags=["Vendors"]
+    )
+    def put(self, request, slug, vendor_id):
+        return apis.VendorService.update_vendor(slug, vendor_id, request.data)
+
+    @extend_schema(
+        summary="Delete Vendor",
+        tags=["Vendors"]
+    )
+    def delete(self, request, slug, vendor_id):
+        return apis.VendorService.delete_vendor(slug, vendor_id)
