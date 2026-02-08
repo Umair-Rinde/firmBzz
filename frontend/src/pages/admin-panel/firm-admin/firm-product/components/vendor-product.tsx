@@ -4,8 +4,11 @@ import CustomInput from "@/components/ui/custom/custom-input";
 import CustomSelect from "@/components/ui/custom/custom-select";
 import { axios } from "@/config/axios";
 import { queryClient } from "@/config/query-client";
+import { useQuery } from "@/hooks/useQuerry";
 import { useMutation } from "@tanstack/react-query";
 import { Form, Formik } from "formik";
+import { useEffect, useState } from "react";
+import { useCookies } from "react-cookie";
 import { toast } from "sonner";
 import * as Yup from "yup";
 
@@ -21,12 +24,21 @@ const VendorProductDrawer = ({
   open: boolean;
 }) => {
   //--------- validation schema -----------//
-  const validationSchema = Yup.object().shape({});
-
+  // const validationSchema = Yup.object().shape({});
+  const [cookies] = useCookies(["current_role", "firm"]);
   //-------- api call ---------//
+
+  const { data: SingleProductData } = useQuery<any>({
+    queryKey: [`/firm/${cookies.firm}/products/${id}/`],
+    select: (data: any) => data?.data?.data,
+    enabled: !!id,
+  });
+
   const { mutate, isPending } = useMutation({
     mutationFn: (data: any) =>
-      id ? axios.put(``, data) : axios.post("", data),
+      id
+        ? axios.put(`firm/${cookies.firm}/products/${id}/`, data)
+        : axios.post(`firm/${cookies.firm}/products/`, data),
     onSuccess(data) {
       toast.success(data?.data?.data?.message || "Successful");
       handleClose();
@@ -39,13 +51,25 @@ const VendorProductDrawer = ({
     },
   });
 
-  //-------- initial values ---------//
-  const initialValues = {
-    productName: "",
-    sku: "",
+  const [initialValues, setInitialValues] = useState({
+    name: "",
+    description: "",
+    hsn_code: "",
     category: "",
-    price: "",
-  };
+  });
+
+  useEffect(() => {
+    if (SingleProductData) {
+      setInitialValues({
+        name: SingleProductData?.name || "",
+        description: SingleProductData?.description || "",
+        hsn_code: SingleProductData?.hsn_code || "",
+        category: SingleProductData?.category || "",
+      });
+    }
+  }, [SingleProductData]);
+
+  //-------- initial values ---------//
 
   return (
     <div>
@@ -59,31 +83,34 @@ const VendorProductDrawer = ({
             initialValues={initialValues}
             validateOnMount
             onSubmit={(values: any) => {
-              const data = {};
-              mutate(data);
+              mutate(values);
             }}
-            validationSchema={validationSchema}
+            // validationSchema={validationSchema}
             enableReinitialize
           >
             {({ errors }) => (
               <Form>
                 <div className="flex flex-col gap-6 py-20  px-[20px] flex-wrap">
                   <CustomInput
-                    name="productName"
+                    name="name"
                     label="Product Name"
-                    placeholder="e.g. Premium Honey"
                     required
                     className="w-full"
                   />
                   <CustomInput
-                    name="sku"
-                    label="SKU"
-                    placeholder="HNY-001"
+                    name="description"
+                    label="description"
+                    required
+                    className="w-full"
+                  />
+                  <CustomInput
+                    name="category"
+                    label="category"
                     required
                     className="w-full"
                   />
 
-                  <CustomSelect
+                  {/* <CustomSelect
                     options={[
                       { name: "Food & Beverage", id: "1" },
                       { name: "Electronics", id: "2" },
@@ -95,13 +122,12 @@ const VendorProductDrawer = ({
                     label="Category"
                     className="w-full"
                     required
-                  />
+                  /> */}
 
                   <CustomInput
-                    name="price"
-                    label="Wholesale Price ($)"
+                    name="hsn_code"
+                    label="HSN code"
                     required
-                    type="number"
                     className="w-full"
                   />
                 </div>

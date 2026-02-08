@@ -39,18 +39,42 @@ export default function Login() {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated && user) {
-      const from = (location.state as any)?.from?.pathname || getRoleBasedRoute(user.role);
-      navigate(from, { replace: true });
+      const navigateToRoute = async () => {
+        const from = (location.state as any)?.from?.pathname;
+        if (from) {
+          navigate(from, { replace: true });
+        } else {
+          const route = await getRoleBasedRoute(user.role, user.firm_id);
+          navigate(route, { replace: true });
+        }
+      };
+      navigateToRoute();
     }
   }, [isAuthenticated, user, navigate, location]);
 
   // Get route based on user role
-  const getRoleBasedRoute = (role: UserRole): string => {
+  const getRoleBasedRoute = async (
+    role: UserRole,
+    firmId?: string,
+  ): Promise<string> => {
     switch (role) {
       case "admin":
         return "/dashboard/create-firm";
       case "firm_admin":
-        return "/dashboard/create-vendor-product";
+        // For firm admin, we need to fetch the firm slug
+        if (firmId) {
+          try {
+            const response = await axios.get(`/firm/all`);
+            const firms = response.data.data;
+            const firm = firms.find((f: any) => f.id === firmId);
+            if (firm?.slug) {
+              return `/dashboard/${firm.slug}/create-vendor-product`;
+            }
+          } catch (error) {
+            console.error("Failed to fetch firm:", error);
+          }
+        }
+        return "/dashboard";
       case "super_retailer":
         return "/dashboard/orders";
       case "distributor":
@@ -63,7 +87,6 @@ export default function Login() {
   const { mutate, isPending } = useMutation({
     mutationFn: (data: any) => axios.post(`/accounts/login/`, data),
     onSuccess: (resp: any) => {
-      console.log(resp, "<--------- res");
       const data = resp?.data?.data;
       const token = resp?.data?.token;
       const userData = resp?.data?.data;
@@ -77,21 +100,23 @@ export default function Login() {
 
       toast.success(resp?.data?.message || "Login Successful");
 
-      
-      const from = (location.state as any)?.from?.pathname || getRoleBasedRoute(
-        userData.user_type === "ADMIN" ? "admin" :
-        userData.role === "FIRM_MANAGER" ? "firm_admin" :
-        userData.role === "SUPER_SELL_MANAGER" ? "super_retailer" :
-        "distributor"
-      );
+      const from =
+        (location.state as any)?.from?.pathname ||
+        getRoleBasedRoute(
+          userData.user_type === "ADMIN"
+            ? "admin"
+            : userData.role === "FIRM_MANAGER"
+              ? "firm_admin"
+              : userData.role === "SUPER_SELL_MANAGER"
+                ? "super_retailer"
+                : "distributor",
+        );
       navigate(from, { replace: true });
     },
     onError: (resp: any) => {
       toast.error(resp?.response?.data?.message || "Something went wrong!");
     },
   });
-
-
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
@@ -162,8 +187,6 @@ export default function Login() {
               </Form>
             )}
           </Formik>
-
-        
         </CardContent>
         <CardFooter className="flex flex-col space-y-2 text-center text-sm text-muted-foreground">
           <p>

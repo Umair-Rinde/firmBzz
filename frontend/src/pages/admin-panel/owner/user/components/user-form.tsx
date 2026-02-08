@@ -35,7 +35,6 @@ const UserDrawer = ({
     enabled: !!row?.id,
   });
 
-  console.log(SingleUserData, "<------- single");
   const { mutate, isPending } = useMutation({
     mutationFn: (data: any) =>
       row

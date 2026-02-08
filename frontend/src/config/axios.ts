@@ -6,10 +6,6 @@ export const axios = OgAxios.create({
   baseURL: import.meta.env.VITE_API_URL,
 });
 
-console.log(
-  import.meta.env.VITE_API_URL,
-  "<------------ import.meta.env.VITE_API_URL",
-);
 axios.interceptors.request.use(function (req) {
   const queryToken = new URLSearchParams(window.location.search).get("token");
   let token = localStorage.getItem("token");

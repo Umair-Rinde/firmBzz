@@ -76,16 +76,32 @@ const App = () => (
                 />
 
                 {/* Firm Admin Routes */}
-                <Route
+                {/* <Route
                   path="create-vendor-product"
                   element={
                     <ProtectedRoute allowedRoles={["firm_admin", "admin"]}>
                       <FirmProductPage />
                     </ProtectedRoute>
                   }
-                />
+                /> */}
                 <Route
+                  path=":firmId/create-vendor-product"
+                  element={
+                    <ProtectedRoute allowedRoles={["firm_admin", "admin"]}>
+                      <FirmProductPage />
+                    </ProtectedRoute>
+                  }
+                />
+                {/* <Route
                   path="create-retailer"
+                  element={
+                    <ProtectedRoute allowedRoles={["firm_admin", "admin"]}>
+                      <RetailerConfigPage />
+                    </ProtectedRoute>
+                  }
+                /> */}
+                <Route
+                  path=":firmId/create-retailer"
                   element={
                     <ProtectedRoute allowedRoles={["firm_admin", "admin"]}>
                       <RetailerConfigPage />
