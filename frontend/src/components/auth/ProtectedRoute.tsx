@@ -10,7 +10,11 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
     const { user, isAuthenticated } = useAuth();
     const location = useLocation();
 
-    if (!isAuthenticated) {
+    // Check authentication - either from context or localStorage
+    const token = localStorage.getItem("token");
+    const isUserAuthenticated = isAuthenticated || !!token;
+
+    if (!isUserAuthenticated) {
         // Redirect to login page with the return url
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
