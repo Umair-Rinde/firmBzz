@@ -430,7 +430,8 @@ class VendorService:
         try:
             vendors = Vendor.objects.filter(firm__slug=firm_slug)
             serializer = VendorSerializer(vendors, many=True)
-            return BaseResponse(data=serializer.data, status=200)
+            data = {"rows": serializer.data, "count": vendors.count()}
+            return BaseResponse(data=data, status=200)
         except Exception as e:
             return BaseResponse(success=False, message=str(e), status=500)
 
