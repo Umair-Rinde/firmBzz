@@ -51,12 +51,13 @@ class Customer(BaseModel):
     owner_name = models.CharField(max_length=255)
     fssai_number = models.CharField(max_length=50, blank=True, null=True)
     gst_number = models.CharField(max_length=50, blank=True, null=True)
-    fssai_expiry = models.DateField(blank=True, null=True)
-    gst_expiry = models.DateField(blank=True, null=True)
+    fssai_expiry = models.DateTimeField(blank=True, null=True)
+    gst_expiry = models.DateTimeField(blank=True, null=True)
     whatsapp_number = models.CharField(max_length=15)
     contact_number = models.CharField(max_length=15)
     business_address = models.TextField()
     email = models.EmailField()
+    is_active = models.BooleanField(default=True)
 
     def save(self, *args, **kwargs):
         if not self.slug:

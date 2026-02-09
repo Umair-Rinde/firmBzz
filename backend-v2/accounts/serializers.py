@@ -2,9 +2,23 @@ from rest_framework import serializers
 from .models import User
 
 class UserSerializer(serializers.ModelSerializer):
+    firm = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         exclude = ["password"]
+
+    def get_firm(self, obj):
+        from .models import FirmUsers
+        firm_user = FirmUsers.objects.filter(user=obj).first()
+        if firm_user:
+            return {
+                "id": firm_user.firm.id,
+                "name": firm_user.firm.name,
+                "slug": firm_user.firm.slug,
+                "role": firm_user.role
+            }
+        return None
 
 class UserCreateSerializer(serializers.ModelSerializer):
     class Meta:

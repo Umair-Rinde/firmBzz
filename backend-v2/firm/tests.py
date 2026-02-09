@@ -8,13 +8,22 @@ User = get_user_model()
 
 class FirmAPITests(TestCase):
     def setUp(self):
+        import jwt
+        from django.conf import settings
         self.client = APIClient()
-        self.user = User.objects.create_user(username='testuser', password='testpassword')
-        self.client.force_authenticate(user=self.user)
+        self.user = User.objects.create_user(
+            phone='1234567890',
+            full_name='Test User',
+            email='test@example.com',
+            password='testpassword'
+        )
+        payload = {"user_id": str(self.user.id)}
+        token = jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+        self.client.credentials(HTTP_AUTHORIZATION=token)
         
         self.firm1 = Firm.objects.create(name='Firm 1', code='F1', is_active=True)
         self.firm2 = Firm.objects.create(name='Firm 2', code='F2', is_active=True)
-        self.url = '/firm/all/'
+        self.url = '/api/firm/all/'
 
     def test_get_all_firms(self):
         response = self.client.get(self.url)

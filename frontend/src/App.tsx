@@ -27,6 +27,7 @@ import FirmProductPage from "./pages/admin-panel/firm-admin/firm-product/page";
 import RetailerConfigPage from "./pages/admin-panel/firm-admin/retailer-config/page";
 import UserConfig from "./pages/admin-panel/owner/user/page";
 import { CookiesProvider } from "react-cookie";
+import FirmUserManagementPage from "./pages/admin-panel/firm-admin/firm-users/page";
 
 const queryClient = new QueryClient();
 
@@ -105,6 +106,14 @@ const App = () => (
                   element={
                     <ProtectedRoute allowedRoles={["firm_admin", "admin"]}>
                       <RetailerConfigPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path=":firmId/user-management"
+                  element={
+                    <ProtectedRoute allowedRoles={["firm_admin", "admin"]}>
+                      <FirmUserManagementPage />
                     </ProtectedRoute>
                   }
                 />

@@ -100,6 +100,13 @@ export default function DashboardLayout() {
       requiresFirm: true,
     },
     {
+      title: "User Management",
+      icon: Users,
+      href: `/dashboard/${selectedFirm}/user-management`,
+      roles: ["firm_admin"],
+      requiresFirm: true,
+    },
+    {
       title: "Orders",
       icon: ShoppingCart,
       href: "/dashboard/orders",
@@ -140,16 +147,14 @@ export default function DashboardLayout() {
               {user?.name?.charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
-          {open && (
-            <div>
-              <p className="text-[1rem] text-white font-semibold">
-                {user?.name}
-              </p>
-              <p className="text-[0.75rem] text-white font-normal capitalize">
-                {user?.role}
-              </p>
-            </div>
-          )}
+          <div className="flex items-start flex-col">
+            <p className="text-[1rem] text-white font-semibold">
+              {user?.name}
+            </p>
+            <p className="text-[0.75rem] text-white font-normal capitalize">
+              {user?.role}
+            </p>
+          </div>
         </div>
 
         <div className="text-white">
@@ -241,11 +246,11 @@ export default function DashboardLayout() {
                         <div className="flex flex-col gap-2 pb-4">
                           <CustomSelect
                             label="Select Firm"
-                            options={FirmData}
+                            options={FirmData || []}
                             getOptionLabel={(option) => option.name}
                             getOptionValue={(option) => option.slug}
                             value={
-                              FirmData.find((f) => f.slug === values.firm) ||
+                              FirmData?.find((f) => f.slug === values.firm) ||
                               null
                             }
                             onChange={(firm) =>
@@ -297,11 +302,10 @@ export default function DashboardLayout() {
               key={item.href}
               to={item.href}
               onClick={() => setIsMobileOpen(false)}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive
-                  ? "bg-primary text-white"
-                  : "text-slate-400 hover:text-white hover:bg-slate-800"
-              }`}
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                ? "bg-primary text-white"
+                : "text-slate-400 hover:text-white hover:bg-slate-800"
+                }`}
             >
               <item.icon className="h-5 w-5" />
               <span className="font-medium">{item.title}</span>

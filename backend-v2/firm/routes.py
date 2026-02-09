@@ -1,10 +1,12 @@
 from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
 from . import apis
 from drf_spectacular.openapi import AutoSchema
 from drf_spectacular.utils import extend_schema
 
 
 class FirmCreateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
     schema = AutoSchema()
 
     @extend_schema(
@@ -15,14 +17,9 @@ class FirmCreateAPIView(APIView):
     def post(self, request):
         return apis.FirmService.create_firm(request.data)
 
-    def delete(self, request, slug):
-        return apis.FirmService.delete_firm(slug)
-    
-    def put(self, request, slug):
-        return apis.FirmService.update_firm(slug, request.data)
-
 
 class FirmListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
     schema = AutoSchema()
 
     @extend_schema(
@@ -35,6 +32,7 @@ class FirmListAPIView(APIView):
 
 
 class FirmDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
     schema = AutoSchema()
 
     @extend_schema(
@@ -47,6 +45,7 @@ class FirmDetailAPIView(APIView):
 
 
 class ProductListCreateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
     schema = AutoSchema()
 
     @extend_schema(
@@ -67,6 +66,7 @@ class ProductListCreateAPIView(APIView):
 
 
 class FirmUserCreateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
     schema = AutoSchema()
 
     @extend_schema(
@@ -79,6 +79,7 @@ class FirmUserCreateAPIView(APIView):
 
 
 class VendorOrderListCreateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
     schema = AutoSchema()
 
     @extend_schema(
@@ -106,6 +107,7 @@ class VendorOrderListCreateAPIView(APIView):
 
 
 class VendorOrderDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
     schema = AutoSchema()
 
     @extend_schema(
@@ -134,6 +136,7 @@ class VendorOrderDetailAPIView(APIView):
 
 
 class VendorOrderReceiveAPIView(APIView):
+    permission_classes = [IsAuthenticated]
     schema = AutoSchema()
 
     @extend_schema(
@@ -144,39 +147,63 @@ class VendorOrderReceiveAPIView(APIView):
     def post(self, request, slug, order_id):
         return apis.VendorOrderService.receive_order(slug, order_id)
 
-
-
-class DropdownAPIView(APIView):
+class FirmUserListCreateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
     schema = AutoSchema()
 
     @extend_schema(
-        summary="Get Dropdown Data",
-        description="Retrieve dropdown data for a specific firm.",
-        tags=["Dropdown"]
+        summary="List Firm Users",
+        description="List all firm users for a specific firm (excluding admin/owner users).",
+        tags=["Firm Users"]
     )
-    def get(self, request):
-        return apis.DropdownsService.get_firm_dropdowns()
+    def get(self, request, slug):
+        return apis.FirmUserService.list_firm_users(slug)
+
+    @extend_schema(
+        summary="Create Firm User",
+        description="Create a new firm user with a specific role.",
+        tags=["Firm Users"]
+    )
+    def post(self, request, slug):
+        return apis.FirmUserService.create_firm_user(slug, request.data)
 
 
-class ProductCrudView(APIView):
-    def get(self,request, slug, id):
-        return apis.ProductService.list_one_product(slug,id)
-    
-    def delete(self,request, slug, id):
-        return apis.ProductService.delete_product(slug,id)
+class FirmUserDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    schema = AutoSchema()
 
-    def put(slef, request, slug, id ):
-        return apis.ProductService.update_product(slug,id, request.data)  
+    @extend_schema(
+        summary="Get Firm User Details",
+        description="Retrieve details of a specific firm user.",
+        tags=["Firm Users"]
+    )
+    def get(self, request, slug, user_id):
+        return apis.FirmUserService.get_firm_user(slug, user_id)
 
+    @extend_schema(
+        summary="Update Firm User",
+        description="Update firm user information and role.",
+        tags=["Firm Users"]
+    )
+    def put(self, request, slug, user_id):
+        return apis.FirmUserService.update_firm_user(slug, user_id, request.data)
 
+    @extend_schema(
+        summary="Delete Firm User",
+        description="Deactivate a firm user.",
+        tags=["Firm Users"]
+    )
+    def delete(self, request, slug, user_id):
+        return apis.FirmUserService.delete_firm_user(slug, user_id)
 
 
 class VendorListCreateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
     schema = AutoSchema()
 
     @extend_schema(
         summary="List Vendors",
-        description="List all vendors of a firm",
+        description="List all vendors for a specific firm.",
         tags=["Vendors"]
     )
     def get(self, request, slug):
@@ -184,7 +211,7 @@ class VendorListCreateAPIView(APIView):
 
     @extend_schema(
         summary="Create Vendor",
-        description="Create a new vendor for a firm",
+        description="Create a new vendor for a specific firm.",
         tags=["Vendors"]
     )
     def post(self, request, slug):
@@ -192,10 +219,12 @@ class VendorListCreateAPIView(APIView):
 
 
 class VendorDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
     schema = AutoSchema()
 
     @extend_schema(
-        summary="Get Vendor",
+        summary="Get Vendor Details",
+        description="Retrieve details of a specific vendor.",
         tags=["Vendors"]
     )
     def get(self, request, slug, vendor_id):
@@ -203,6 +232,7 @@ class VendorDetailAPIView(APIView):
 
     @extend_schema(
         summary="Update Vendor",
+        description="Update vendor information.",
         tags=["Vendors"]
     )
     def put(self, request, slug, vendor_id):
@@ -210,7 +240,85 @@ class VendorDetailAPIView(APIView):
 
     @extend_schema(
         summary="Delete Vendor",
+        description="Delete a vendor.",
         tags=["Vendors"]
     )
     def delete(self, request, slug, vendor_id):
         return apis.VendorService.delete_vendor(slug, vendor_id)
+
+
+class CustomerListCreateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    schema = AutoSchema()
+
+    @extend_schema(
+        summary="List Retailers/Customers",
+        description="List all customers for a specific firm.",
+        tags=["Customers"]
+    )
+    def get(self, request, slug):
+        return apis.CustomerService.list_customers(slug)
+
+    @extend_schema(
+        summary="Create Retailer/Customer",
+        description="Create a new customer for a specific firm.",
+        tags=["Customers"]
+    )
+    def post(self, request, slug):
+        return apis.CustomerService.create_customer(slug, request.data)
+
+
+class CustomerDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    schema = AutoSchema()
+
+    @extend_schema(
+        summary="Get Retailer/Customer Details",
+        description="Retrieve details of a specific customer.",
+        tags=["Customers"]
+    )
+    def get(self, request, slug, customer_id):
+        return apis.CustomerService.get_customer(slug, customer_id)
+
+    @extend_schema(
+        summary="Update Retailer/Customer",
+        description="Update customer information.",
+        tags=["Customers"]
+    )
+    def put(self, request, slug, customer_id):
+        return apis.CustomerService.update_customer(slug, customer_id, request.data)
+
+    @extend_schema(
+        summary="Delete Retailer/Customer",
+        description="Delete a customer.",
+        tags=["Customers"]
+    )
+    def delete(self, request, slug, customer_id):
+        return apis.CustomerService.delete_customer(slug, customer_id)
+
+
+class ProductDetailAPIView(APIView):
+
+    @extend_schema(
+        summary="Get Product Details",
+        description="Retrieve details of a specific product.",
+        tags=["Products"]
+    )
+    def get(self, request, slug, product_id):
+        return apis.ProductCrudService.get_product(slug, product_id)
+
+    @extend_schema(
+        summary="Update Product",
+        description="Update product information.",
+        tags=["Products"]
+    )
+    def put(self, request, slug, product_id):
+        return apis.ProductCrudService.update_product(slug, product_id, request.data)
+
+    @extend_schema(
+        summary="Delete Product",
+        description="Delete a product.",
+        tags=["Products"]
+    )
+    def delete(self, request, slug, product_id):
+        return apis.ProductCrudService.delete_product(slug, product_id)

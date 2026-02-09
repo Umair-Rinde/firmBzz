@@ -13,6 +13,8 @@ class AuthMiddleware:
         token = request.headers.get("Authorization")
         print(token)
         if request.path.startswith("/api") and request.path not in settings.EXCLUDED_PATHS:
+            if getattr(request, 'user', None) and request.user.is_authenticated:
+                return self.get_response(request)
             if not token:
                 return JsonResponse(
                     data={"msg": "Token not provided"}, status=403

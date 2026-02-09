@@ -1,7 +1,9 @@
-from .models import Firm, Product, Vendor,VendorOrder
+from .models import Firm, Product, VendorOrder, VendorOrderItem, Vendor, Customer
+from accounts.models import FirmUsers
 from .serializers import (
     FirmSerializer, ProductSerializer, VendorOrderSerializer, 
-    VendorOrderCreateSerializer, FirmDropdownSerializer, VendorSerializer
+    VendorOrderCreateSerializer, FirmUserSerializer, FirmUserCreateSerializer,
+    FirmUserUpdateSerializer, VendorSerializer, CustomerSerializer
 )
 from portal.base import BaseResponse
 from django.db import transaction
@@ -42,52 +44,12 @@ class FirmService:
             )
 
     @staticmethod
-    def update_firm(slug, data):
-        try:
-            firm = Firm.objects.get(slug=slug)
-        except Firm.DoesNotExist:
-            return BaseResponse(
-                success=False,
-                message="Firm not found",
-                status=404
-            )
-        serializer = FirmSerializer(firm, data=data)
-        if serializer.is_valid():
-            serializer.save()
-            return BaseResponse(
-                message="Firm updated successfully",
-                data=serializer.data,
-                status=200
-            )
-        return BaseResponse(
-            success=False,
-            message="Invalid data",
-            errors=serializer.errors,
-            status=400
-        )
-
-    @staticmethod
-    def delete_firm(slug):
-        try:
-            firm = Firm.objects.get(slug=slug)
-        except Firm.DoesNotExist:
-            return BaseResponse(
-                success=False,
-                message="Firm not found",
-                status=404
-            )
-        firm.delete()
-        return BaseResponse(
-            message="Firm deleted successfully",
-            status=200
-        )
-
-    @staticmethod
     def list_firms():
         firms = Firm.objects.all()
         serializer = FirmSerializer(firms, many=True)
+        data = {"rows": serializer.data, "count": firms.count()}
         return BaseResponse(
-            data={"rows": serializer.data, "count": firms.count()},
+            data=serializer.data,
             status=200
         )
 
@@ -106,11 +68,11 @@ class FirmService:
         data["firm"] = firm.id
         # Ensure user_type is FIRM_USER if not provided
         if "user_type" not in data:
-            # We need to import UserTypeChoices. 
-            # To avoid circular imports, maybe just string "FIRM_USER" if logic permits, 
-            # but better to import from accounts.choices
-            from accounts.choices import UserTypeChoices
-            data["user_type"] = UserTypeChoices.FIRM_USER
+             # We need to import UserTypeChoices. 
+             # To avoid circular imports, maybe just string "FIRM_USER" if logic permits, 
+             # but better to import from accounts.choices
+             from accounts.choices import UserTypeChoices
+             data["user_type"] = UserTypeChoices.FIRM_USER
         
         from accounts.serializers import UserCreateSerializer
         serializer = UserCreateSerializer(data=data)
@@ -168,90 +130,12 @@ class ProductService:
         
         products = Product.objects.filter(firm=firm)
         serializer = ProductSerializer(products, many=True)
+        data = {"rows": serializer.data, "count": products.count()}
         return BaseResponse(
-            data={"rows": serializer.data, "count": products.count()},
+            data=data,
             status=200
         )
 
-    @staticmethod
-    def delete_product(firm_slug, product_id):
-        try:
-            firm = Firm.objects.get(slug=firm_slug)
-        except Firm.DoesNotExist:
-            return BaseResponse(
-                success=False,
-                message="Firm not found",
-                status=404
-            )
-        try:
-            product = Product.objects.get(id=product_id)
-        except Product.DoesNotExist:
-            return BaseResponse(
-                success=False,
-                message="Product not found",
-                status=404
-            )
-        product.delete()
-        return BaseResponse(
-            message="Product deleted successfully",
-            status=200
-        )
-
-    @staticmethod
-    def list_one_product(firm_slug, product_id):
-        try:
-            firm = Firm.objects.get(slug=firm_slug)
-        except Firm.DoesNotExist:
-            return BaseResponse(
-                success=False,
-                message="Firm not found",
-                status=404
-            )
-        try:
-            product = Product.objects.get(id=product_id)
-        except Product.DoesNotExist:
-            return BaseResponse(
-                success=False,
-                message="Product not found",
-                status=404
-            )
-        serializer = ProductSerializer(product)
-        return BaseResponse(
-            data=serializer.data,
-            status=200
-        )
-    @staticmethod
-    def update_product(firm_slug, product_id, data):
-        try:
-            firm = Firm.objects.get(slug=firm_slug)
-        except Firm.DoesNotExist:
-            return BaseResponse(
-                success=False,
-                message="Firm not found",
-                status=404
-            )
-        try:
-            product = Product.objects.get(id=product_id)
-        except Product.DoesNotExist:
-            return BaseResponse(
-                success=False,
-                message="Product not found",
-                status=404
-            )
-        serializer = ProductSerializer(product, data=data)
-        if serializer.is_valid():
-            serializer.save()
-            return BaseResponse(
-                message="Product updated successfully",
-                data=serializer.data,
-                status=200
-            )
-        return BaseResponse(
-            success=False,
-            message="Invalid data",
-            errors=serializer.errors,
-            status=400
-        )
 
 class VendorOrderService:
     @staticmethod
@@ -312,7 +196,7 @@ class VendorOrderService:
         
         serializer = VendorOrderSerializer(orders, many=True)
         return BaseResponse(
-            data={"rows": serializer.data, "count": orders.count()},
+            data=serializer.data,
             status=200
         )
     
@@ -457,134 +341,228 @@ class VendorOrderService:
                 status=200
             )
 
-
-class DropdownsService: 
+class FirmUserService:
     @staticmethod
-    def get_firm_dropdowns():
+    def list_firm_users(firm_slug):
         try:
-            firm = Firm.objects.all()
-            serializer = FirmDropdownSerializer(firm, many=True)
-            data = serializer.data
+            firm = Firm.objects.get(slug=firm_slug)
+        except Firm.DoesNotExist:
+            return BaseResponse(success=False, message="Firm not found", status=404)
+
+        # Exclude admin and owner users from firm user management
+        firm_users = FirmUsers.objects.filter(
+            firm=firm,
+        ).exclude(user__user_type='ADMIN')
+
+        serializer = FirmUserSerializer(firm_users, many=True)
+        data = {"rows": serializer.data, "count": firm_users.count()}
+        return BaseResponse(data=data, status=200)
+
+    @staticmethod
+    def create_firm_user(firm_slug, data):
+        try:
+            firm = Firm.objects.get(slug=firm_slug)
+        except Firm.DoesNotExist:
+            return BaseResponse(success=False, message="Firm not found", status=404)
+
+        serializer = FirmUserCreateSerializer(data=data, context={'firm': firm})
+        if serializer.is_valid():
+            firm_user = serializer.save()
             return BaseResponse(
-                data=data,
+                message="User created and added to firm successfully",
+                data=FirmUserSerializer(firm_user).data,
+                status=201
+            )
+        return BaseResponse(
+            success=False,
+            message="Invalid data",
+            errors=serializer.errors,
+            status=400
+        )
+
+    @staticmethod
+    def get_firm_user(firm_slug, user_id):
+        try:
+            firm_user = FirmUsers.objects.get(id=user_id, firm__slug=firm_slug)
+            serializer = FirmUserSerializer(firm_user)
+            return BaseResponse(data=serializer.data, status=200)
+        except FirmUsers.DoesNotExist:
+            return BaseResponse(success=False, message="User not found", status=404)
+
+    @staticmethod
+    def update_firm_user(firm_slug, user_id, data):
+        try:
+            firm_user = FirmUsers.objects.get(id=user_id, firm__slug=firm_slug)
+        except FirmUsers.DoesNotExist:
+            return BaseResponse(success=False, message="User not found", status=404)
+
+        serializer = FirmUserUpdateSerializer(firm_user, data=data, partial=True)
+        if serializer.is_valid():
+            firm_user = serializer.save()
+            return BaseResponse(
+                message="User updated successfully",
+                data=FirmUserSerializer(firm_user).data,
                 status=200
             )
-        except Exception as e:
-            return BaseResponse(
-                success=False,
-                message=str(e),
-                status=500
-            )
+        return BaseResponse(
+            success=False,
+            message="Invalid data",
+            errors=serializer.errors,
+            status=400
+        )
 
+    @staticmethod
+    def delete_firm_user(firm_slug, user_id):
+        # We implementation deactivation instead of hard delete for users
+        try:
+            firm_user = FirmUsers.objects.get(id=user_id, firm__slug=firm_slug)
+            user = firm_user.user
+            user.is_active = False
+            user.save()
+            return BaseResponse(message="User deactivated successfully", status=200)
+        except FirmUsers.DoesNotExist:
+            return BaseResponse(success=False, message="User not found", status=404)
 
 
 class VendorService:
+    @staticmethod
+    def list_vendors(firm_slug):
+        try:
+            vendors = Vendor.objects.filter(firm__slug=firm_slug)
+            serializer = VendorSerializer(vendors, many=True)
+            return BaseResponse(data=serializer.data, status=200)
+        except Exception as e:
+            return BaseResponse(success=False, message=str(e), status=500)
 
     @staticmethod
     def create_vendor(firm_slug, data):
         try:
             firm = Firm.objects.get(slug=firm_slug)
         except Firm.DoesNotExist:
-            return BaseResponse(
-                success=False,
-                message="Firm not found",
-                status=404
-            )
+            return BaseResponse(success=False, message="Firm not found", status=404)
 
         serializer = VendorSerializer(data=data)
         if serializer.is_valid():
             serializer.save(firm=firm)
-            return BaseResponse(
-                message="Vendor created successfully",
-                data=serializer.data,
-                status=201
-            )
-
-        return BaseResponse(
-            success=False,
-            message="Invalid data",
-            errors=serializer.errors,
-            status=400
-        )
-
-    @staticmethod
-    def list_vendors(firm_slug):
-        try:
-            firm = Firm.objects.get(slug=firm_slug)
-        except Firm.DoesNotExist:
-            return BaseResponse(
-                success=False,
-                message="Firm not found",
-                status=404
-            )
-
-        vendors = Vendor.objects.filter(firm=firm)
-        serializer = VendorSerializer(vendors, many=True)
-        return BaseResponse(
-            data={"rows": serializer.data, "count": vendors.count()},
-            status=200
-        )
+            return BaseResponse(message="Vendor created successfully", data=serializer.data, status=201)
+        return BaseResponse(success=False, message="Invalid data", errors=serializer.errors, status=400)
 
     @staticmethod
     def get_vendor(firm_slug, vendor_id):
         try:
-            firm = Firm.objects.get(slug=firm_slug)
-            vendor = Vendor.objects.get(id=vendor_id, firm=firm)
-        except (Firm.DoesNotExist, Vendor.DoesNotExist):
-            return BaseResponse(
-                success=False,
-                message="Vendor not found",
-                status=404
-            )
-
-        serializer = VendorSerializer(vendor)
-        return BaseResponse(
-            data=serializer.data,
-            status=200
-        )
+            vendor = Vendor.objects.get(id=vendor_id, firm__slug=firm_slug)
+            serializer = VendorSerializer(vendor)
+            return BaseResponse(data=serializer.data, status=200)
+        except Vendor.DoesNotExist:
+            return BaseResponse(success=False, message="Vendor not found", status=404)
 
     @staticmethod
     def update_vendor(firm_slug, vendor_id, data):
         try:
-            firm = Firm.objects.get(slug=firm_slug)
-            vendor = Vendor.objects.get(id=vendor_id, firm=firm)
-        except (Firm.DoesNotExist, Vendor.DoesNotExist):
-            return BaseResponse(
-                success=False,
-                message="Vendor not found",
-                status=404
-            )
+            vendor = Vendor.objects.get(id=vendor_id, firm__slug=firm_slug)
+        except Vendor.DoesNotExist:
+            return BaseResponse(success=False, message="Vendor not found", status=404)
 
         serializer = VendorSerializer(vendor, data=data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            return BaseResponse(
-                message="Vendor updated successfully",
-                data=serializer.data,
-                status=200
-            )
-
-        return BaseResponse(
-            success=False,
-            message="Invalid data",
-            errors=serializer.errors,
-            status=400
-        )
+            return BaseResponse(message="Vendor updated successfully", data=serializer.data, status=200)
+        return BaseResponse(success=False, message="Invalid data", errors=serializer.errors, status=400)
 
     @staticmethod
     def delete_vendor(firm_slug, vendor_id):
         try:
-            firm = Firm.objects.get(slug=firm_slug)
-            vendor = Vendor.objects.get(id=vendor_id, firm=firm)
-        except (Firm.DoesNotExist, Vendor.DoesNotExist):
-            return BaseResponse(
-                success=False,
-                message="Vendor not found",
-                status=404
-            )
+            vendor = Vendor.objects.get(id=vendor_id, firm__slug=firm_slug)
+            vendor.delete()
+            return BaseResponse(message="Vendor deleted successfully", status=200)
+        except Vendor.DoesNotExist:
+            return BaseResponse(success=False, message="Vendor not found", status=404)
 
-        vendor.delete()
-        return BaseResponse(
-            message="Vendor deleted successfully",
-            status=200
-        )
+
+class CustomerService:
+    @staticmethod
+    def list_customers(firm_slug):
+        try:
+            customers = Customer.objects.filter(firm__slug=firm_slug)
+            serializer = CustomerSerializer(customers, many=True)
+            data = {"rows": serializer.data, "count": customers.count()}
+            return BaseResponse(data=data, status=200)
+        except Exception as e:
+            return BaseResponse(success=False, message=str(e), status=500)
+
+    @staticmethod
+    def create_customer(firm_slug, data):
+        try:
+            firm = Firm.objects.get(slug=firm_slug)
+        except Firm.DoesNotExist:
+            return BaseResponse(success=False, message="Firm not found", status=404)
+
+        serializer = CustomerSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save(firm=firm)
+            return BaseResponse(message="Customer created successfully", data=serializer.data, status=201)
+        return BaseResponse(success=False, message="Invalid data", errors=serializer.errors, status=400)
+
+    @staticmethod
+    def get_customer(firm_slug, customer_id):
+        try:
+            customer = Customer.objects.get(id=customer_id, firm__slug=firm_slug)
+            serializer = CustomerSerializer(customer)
+            return BaseResponse(data=serializer.data, status=200)
+        except Customer.DoesNotExist:
+            return BaseResponse(success=False, message="Customer not found", status=404)
+
+    @staticmethod
+    def update_customer(firm_slug, customer_id, data):
+        try:
+            customer = Customer.objects.get(id=customer_id, firm__slug=firm_slug)
+        except Customer.DoesNotExist:
+            return BaseResponse(success=False, message="Customer not found", status=404)
+
+        serializer = CustomerSerializer(customer, data=data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return BaseResponse(message="Customer updated successfully", data=serializer.data, status=200)
+        return BaseResponse(success=False, message="Invalid data", errors=serializer.errors, status=400)
+
+    @staticmethod
+    def delete_customer(firm_slug, customer_id):
+        try:
+            customer = Customer.objects.get(id=customer_id, firm__slug=firm_slug)
+            customer.delete()
+            return BaseResponse(message="Customer deleted successfully", status=200)
+        except Customer.DoesNotExist:
+            return BaseResponse(success=False, message="Customer not found", status=404)
+
+
+class ProductCrudService:
+    @staticmethod
+    def get_product(firm_slug, product_id):
+        try:
+            product = Product.objects.get(id=product_id, firm__slug=firm_slug)
+            serializer = ProductSerializer(product)
+            return BaseResponse(data=serializer.data, status=200)
+        except Product.DoesNotExist:
+            return BaseResponse(success=False, message="Product not found", status=404)
+
+    @staticmethod
+    def update_product(firm_slug, product_id, data):
+        try:
+            product = Product.objects.get(id=product_id, firm__slug=firm_slug)
+        except Product.DoesNotExist:
+            return BaseResponse(success=False, message="Product not found", status=404)
+
+        serializer = ProductSerializer(product, data=data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return BaseResponse(message="Product updated successfully", data=serializer.data, status=200)
+        return BaseResponse(success=False, message="Invalid data", errors=serializer.errors, status=400)
+
+    @staticmethod
+    def delete_product(firm_slug, product_id):
+        try:
+            product = Product.objects.get(id=product_id, firm__slug=firm_slug)
+            product.delete()
+            return BaseResponse(message="Product deleted successfully", status=200)
+        except Product.DoesNotExist:
+            return BaseResponse(success=False, message="Product not found", status=404)

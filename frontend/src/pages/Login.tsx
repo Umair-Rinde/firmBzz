@@ -44,7 +44,7 @@ export default function Login() {
         if (from) {
           navigate(from, { replace: true });
         } else {
-          const route = await getRoleBasedRoute(user.role, user.firm_id);
+          const route = await getRoleBasedRoute(user.role, user.firm_slug);
           navigate(route, { replace: true });
         }
       };
@@ -55,29 +55,25 @@ export default function Login() {
   // Get route based on user role
   const getRoleBasedRoute = async (
     role: UserRole,
-    firmId?: string,
+    firmSlug?: string,
   ): Promise<string> => {
     switch (role) {
       case "admin":
         return "/dashboard/create-firm";
       case "firm_admin":
-        // For firm admin, we need to fetch the firm slug
-        if (firmId) {
-          try {
-            const response = await axios.get(`/firm/all`);
-            const firms = response.data.data;
-            const firm = firms.find((f: any) => f.id === firmId);
-            if (firm?.slug) {
-              return `/dashboard/${firm.slug}/create-vendor-product`;
-            }
-          } catch (error) {
-            console.error("Failed to fetch firm:", error);
-          }
+        if (firmSlug) {
+          return `/dashboard/${firmSlug}`;
         }
         return "/dashboard";
       case "super_retailer":
+        if (firmSlug) {
+          return `/dashboard/${firmSlug}`;
+        }
         return "/dashboard/orders";
       case "distributor":
+        if (firmSlug) {
+          return `/dashboard/${firmSlug}`;
+        }
         return "/dashboard/distribution";
       default:
         return "/dashboard";
@@ -100,18 +96,22 @@ export default function Login() {
 
       toast.success(resp?.data?.message || "Login Successful");
 
-      const from =
-        (location.state as any)?.from?.pathname ||
-        getRoleBasedRoute(
-          userData.user_type === "ADMIN"
-            ? "admin"
-            : userData.role === "FIRM_MANAGER"
-              ? "firm_admin"
-              : userData.role === "SUPER_SELL_MANAGER"
-                ? "super_retailer"
-                : "distributor",
-        );
-      navigate(from, { replace: true });
+      const from = (location.state as any)?.from?.pathname;
+      if (from) {
+        navigate(from, { replace: true });
+      } else {
+        const userRole = userData.user_type === "ADMIN"
+          ? "admin"
+          : userData.firm?.role === "FIRM_ADMIN"
+            ? "firm_admin"
+            : userData.firm?.role === "SUPER_SELLER"
+              ? "super_retailer"
+              : "distributor";
+
+        getRoleBasedRoute(userRole, userData.firm?.slug).then((route) => {
+          navigate(route, { replace: true });
+        });
+      }
     },
     onError: (resp: any) => {
       toast.error(resp?.response?.data?.message || "Something went wrong!");

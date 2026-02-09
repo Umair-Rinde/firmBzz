@@ -78,7 +78,7 @@ class FirmUsers(BaseModel):
     aadhaar_number = models.CharField(max_length=12, blank=True, null=True)
     pan_number = models.CharField(max_length=10, blank=True, null=True)
     driving_license = models.CharField(max_length=50, blank=True, null=True)
-    license_expiry = models.DateField(blank=True, null=True)
+    license_expiry = models.DateTimeField(blank=True, null=True)
     home_address = models.TextField(blank=True, null=True)
     profile_photo = models.ImageField(upload_to='staff/', blank=True, null=True)
 

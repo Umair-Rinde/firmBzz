@@ -1,5 +1,5 @@
 from pathlib import Path
-from environ import environ 
+import environ
 
 env=environ.Env()
 environ.Env.read_env()
@@ -7,8 +7,8 @@ environ.Env.read_env()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-SECRET_KEY = 'django-insecure-yqw*dmmjhm5c(p!!1j%@4(vz6!@^_8mo&h7ve7z=$zo1ou^0z^'
 
+SECRET_KEY = env("SECRET_KEY", default="django-insecure-9xk4%p7v!s@3q^c2m&6z#y$8r_5=+w@a!e0nq^%l7h*b")
 DEBUG = True
 
 JWT_SECRET_KEY = env("JWT_SECRET_KEY")

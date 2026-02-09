@@ -7,8 +7,12 @@ interface BackendUser {
   username: string;
   email: string;
   user_type: string;
-  role?: string;
-  firm_id?: string;
+  firm?: {
+    id: string;
+    name: string;
+    slug: string;
+    role: string;
+  };
 }
 
 interface User {
@@ -18,6 +22,7 @@ interface User {
   role: UserRole;
   username: string;
   firm_id?: string;
+  firm_slug?: string;
 }
 
 interface AuthContextType {
@@ -30,25 +35,24 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Map backend roles to frontend roles
-const mapBackendRoleToFrontend = (userType: string, role?: string): UserRole => {
-  if (userType === "Admin") {
+const mapBackendRoleToFrontend = (userType: string, firmRole?: string): UserRole => {
+  if (userType === "ADMIN") {
     return "admin";
   }
-  
+
   if (userType === "FIRM_USER") {
-    switch (role) {
-      case "FIRM_MANAGER":
+    switch (firmRole) {
+      case "FIRM_ADMIN":
         return "firm_admin";
-      case "SUPER_SELL_MANAGER":
+      case "SUPER_SELLER":
         return "super_retailer";
-      case "DISTRIBUTION_MANAGER":
-      case "SALESMAN":
+      case "DISTRIBUTOR":
         return "distributor";
       default:
         return "firm_admin"; // Default fallback
     }
   }
-  
+
   return "firm_admin"; // Default fallback
 };
 
@@ -59,7 +63,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const token = localStorage.getItem("token");
     const userStr = localStorage.getItem("users_obj");
-    
+
     if (token && userStr) {
       try {
         const backendUser: BackendUser = JSON.parse(userStr);
@@ -68,8 +72,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           name: backendUser.username,
           email: backendUser.email,
           username: backendUser.username,
-          role: mapBackendRoleToFrontend(backendUser.user_type, backendUser.role),
-          firm_id: backendUser.firm_id,
+          role: mapBackendRoleToFrontend(backendUser.user_type, backendUser.firm?.role),
+          firm_id: backendUser.firm?.id,
+          firm_slug: backendUser.firm?.slug,
         };
         setUser(mappedUser);
       } catch (error) {
@@ -84,17 +89,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Save to localStorage
     localStorage.setItem("token", token);
     localStorage.setItem("users_obj", JSON.stringify(userData));
-    
+
     // Map backend user to frontend user
     const mappedUser: User = {
       id: userData.id,
       name: userData.username,
       email: userData.email,
       username: userData.username,
-      role: mapBackendRoleToFrontend(userData.user_type, userData.role),
-      firm_id: userData.firm_id,
+      role: mapBackendRoleToFrontend(userData.user_type, userData.firm?.role),
+      firm_id: userData.firm?.id,
+      firm_slug: userData.firm?.slug,
     };
-    
+
     setUser(mappedUser);
   };
 
