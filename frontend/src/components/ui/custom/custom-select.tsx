@@ -61,8 +61,8 @@ const CustomSelect = ({
 
   const fieldValue = useMemo(() => {
     if (propValue) return getOptionValue(propValue);
-    if (name) return getOptionValue(optionsProps?.value);
-    return localValue;
+    if (name && optionsProps?.value) return getOptionValue(optionsProps?.value);
+    return localValue || "";
   }, [propValue, name, optionsProps?.value, getOptionValue, localValue]);
 
   // console.log(optionsProps, "<----------------optionsProps.error");
@@ -85,9 +85,8 @@ const CustomSelect = ({
         }}
       >
         <SelectTrigger
-          className={`w-[180px] !h-[44px] !rounded-[8px] shadow-[rgba(10,13,18,0.05)] hover:bg-blue-50 ${className} ${
-            optionsProps.error ? "border-red-500" : "border-[#D5D7DA] "
-          }`}
+          className={`w-[180px] !h-[44px] !rounded-[8px] shadow-[rgba(10,13,18,0.05)] hover:bg-blue-50 ${className} ${optionsProps.error ? "border-red-500" : "border-[#D5D7DA] "
+            }`}
         >
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>

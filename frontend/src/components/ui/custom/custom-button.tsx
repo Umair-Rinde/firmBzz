@@ -5,18 +5,20 @@ import { Button } from "../button";
 interface CustomButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?:
-    | "default"
-    | "destructive"
-    | "outline"
-    | "secondary"
-    | "ghost"
-    | "link";
+  | "default"
+  | "destructive"
+  | "outline"
+  | "secondary"
+  | "ghost"
+  | "link";
+  size?: "default" | "sm" | "lg" | "xl" | "icon";
   isPending?: boolean;
 }
 
 const CustomButton: React.FC<CustomButtonProps> = ({
   type = "button",
   variant = "default",
+  size = "default",
   className,
   isPending = false,
   children,
@@ -26,6 +28,7 @@ const CustomButton: React.FC<CustomButtonProps> = ({
     <Button
       type={type as "button" | "submit" | "reset"}
       variant={variant}
+      size={size}
       disabled={isPending || props.disabled}
       {...props}
       className={`!h-[40px] rounded-[8px] border-[#D5D7DA]  shadow-[rgba(10,13,18,0.05)] text-[0.875rem] capitalize flex font-medium leading-[20px] items-center gap-2 ${className}`}

@@ -145,7 +145,7 @@ class VendorOrderReceiveAPIView(APIView):
         tags=["Vendor Orders"]
     )
     def post(self, request, slug, order_id):
-        return apis.VendorOrderService.receive_order(slug, order_id)
+        return apis.VendorOrderService.receive_order(slug, order_id, request.data)
 
 class FirmUserListCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]

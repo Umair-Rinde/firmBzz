@@ -107,6 +107,13 @@ export default function DashboardLayout() {
       requiresFirm: true,
     },
     {
+      title: "Vendor Orders",
+      icon: Users,
+      href: `/dashboard/${selectedFirm}/vendor-orders`,
+      roles: ["firm_admin"],
+      requiresFirm: true,
+    },
+    {
       title: "User Management",
       icon: Users,
       href: `/dashboard/${selectedFirm}/user-management`,

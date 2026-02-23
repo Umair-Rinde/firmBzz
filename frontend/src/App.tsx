@@ -29,6 +29,8 @@ import UserConfig from "./pages/admin-panel/owner/user/page";
 import { CookiesProvider } from "react-cookie";
 import FirmUserManagementPage from "./pages/admin-panel/firm-admin/firm-users/page";
 import VendorListPage from "./pages/admin-panel/firm-admin/vendors/page";
+import VendorOrderListPage from "./pages/admin-panel/firm-admin/vendor-orders/page";
+import VendorOrderAddPage from "./pages/admin-panel/firm-admin/vendor-orders/create-order";
 
 const queryClient = new QueryClient();
 
@@ -123,6 +125,22 @@ const App = () => (
                   element={
                     <ProtectedRoute allowedRoles={["firm_admin", "admin"]}>
                       <VendorListPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path=":firmId/vendor-orders"
+                  element={
+                    <ProtectedRoute allowedRoles={["firm_admin", "admin"]}>
+                      <VendorOrderListPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path=":firmId/vendor-orders/create"
+                  element={
+                    <ProtectedRoute allowedRoles={["firm_admin", "admin"]}>
+                      <VendorOrderAddPage />
                     </ProtectedRoute>
                   }
                 />

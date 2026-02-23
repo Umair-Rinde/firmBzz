@@ -49,7 +49,7 @@ class FirmService:
         serializer = FirmSerializer(firms, many=True)
         data = {"rows": serializer.data, "count": firms.count()}
         return BaseResponse(
-            data=serializer.data,
+            data=data,
             status=200
         )
 
@@ -195,8 +195,9 @@ class VendorOrderService:
                 orders = orders.filter(payment_status=filters['payment_status'])
         
         serializer = VendorOrderSerializer(orders, many=True)
+        data = {"rows": serializer.data, "count": orders.count()}
         return BaseResponse(
-            data=serializer.data,
+            data=data,
             status=200
         )
     
@@ -291,7 +292,7 @@ class VendorOrderService:
             )
     
     @staticmethod
-    def receive_order(firm_slug, order_id):
+    def receive_order(firm_slug, order_id, data):
         """Mark order as received and create product batches"""
         try:
             firm = Firm.objects.get(slug=firm_slug)
@@ -319,6 +320,16 @@ class VendorOrderService:
             )
         
         with transaction.atomic():
+            # Process received quantities if provided
+            items_data = data.get('items', [])
+            for item_data in items_data:
+                try:
+                    order_item = VendorOrderItem.objects.get(id=item_data['id'], order=order)
+                    order_item.quantity_received = item_data.get('quantity_received', order_item.quantity_ordered)
+                    order_item.save()
+                except (VendorOrderItem.DoesNotExist, KeyError):
+                    continue
+
             # Update order status
             order.order_status = 'RECEIVED'
             order.received_date = date.today()
