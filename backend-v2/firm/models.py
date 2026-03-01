@@ -68,6 +68,8 @@ class Customer(BaseModel):
         return f"{self.business_name} ({self.get_customer_type_display()})"
 
 
+from random import randint
+
 class Vendor(BaseModel):
     """Vendor/Supplier"""
     firm = models.ForeignKey(Firm, on_delete=models.CASCADE, related_name='vendors')
@@ -75,7 +77,7 @@ class Vendor(BaseModel):
     vendor_name = models.CharField(max_length=255)
     owner_name = models.CharField(max_length=255)
     gst_number = models.CharField(max_length=50, blank=True, null=True)
-    gst_expiry = models.DateField(blank=True, null=True)
+    gst_expiry = models.DateTimeField(blank=True, null=True)
     whatsapp_number = models.CharField(max_length=15)
     telephone_number = models.CharField(max_length=15, blank=True, null=True)
     address = models.TextField()
@@ -85,7 +87,7 @@ class Vendor(BaseModel):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = slugify(self.vendor_name)
+            self.slug = slugify(self.vendor_name + str(randint(1, 1000)))
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -100,11 +102,11 @@ class ProductBatch(BaseModel):
     
     # Batch Details
     batch_number = models.CharField(max_length=100)
-    manufacturing_date = models.DateField(blank=True, null=True)
-    expiry_date = models.DateField(blank=True, null=True)
+    manufacturing_date = models.DateTimeField(blank=True, null=True)
+    expiry_date = models.DateTimeField(blank=True, null=True)
     
     # Receipt Details
-    received_date = models.DateField()
+    received_date = models.DateTimeField()
     quantity_received = models.IntegerField()
     quantity_remaining = models.IntegerField()
     
@@ -138,7 +140,7 @@ class VendorOrder(BaseModel):
     
     # Order Details
     order_number = models.CharField(max_length=100, unique=True)
-    order_date = models.DateField()
+    order_date = models.DateTimeField()
     vendor_invoice_number = models.CharField(max_length=100, blank=True, null=True)
     
     # Financial Details
@@ -159,7 +161,7 @@ class VendorOrder(BaseModel):
     
     # Additional Info
     notes = models.TextField(blank=True, null=True)
-    received_date = models.DateField(blank=True, null=True)
+    received_date = models.DateTimeField(blank=True, null=True)
 
     class Meta:
         ordering = ['-order_date', '-created_on']
@@ -194,8 +196,8 @@ class VendorOrderItem(BaseModel):
     
     # Batch Information
     batch_number = models.CharField(max_length=100)
-    manufacturing_date = models.DateField(blank=True, null=True)
-    expiry_date = models.DateField(blank=True, null=True)
+    manufacturing_date = models.DateTimeField(blank=True, null=True)
+    expiry_date = models.DateTimeField(blank=True, null=True)
     
     # Link to created batch (set when order is received)
     product_batch = models.ForeignKey(ProductBatch, on_delete=models.SET_NULL, null=True, blank=True, related_name='order_items')

@@ -7,7 +7,7 @@ from .serializers import (
 )
 from portal.base import BaseResponse
 from django.db import transaction
-from datetime import date
+from django.utils import timezone
 
 class FirmService:
     @staticmethod
@@ -332,7 +332,7 @@ class VendorOrderService:
 
             # Update order status
             order.order_status = 'RECEIVED'
-            order.received_date = date.today()
+            order.received_date = timezone.now()
             order.save()
             
             # Create product batches for all items

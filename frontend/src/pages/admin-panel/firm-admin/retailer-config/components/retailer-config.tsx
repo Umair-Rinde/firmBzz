@@ -57,8 +57,8 @@ const RetailerConfigDrawer = ({
 
   //-------- initial values ---------//
   const customerTypes = [
-    { label: "Super Seller Retailer", value: "SUPER_SELLER_USER" },
-    { label: "Distribution Retailer", value: "DISTRIBUTOR_USER" },
+    { label: "Super Seller Retailer", value: "SUPER_SELLER" },
+    { label: "Distribution Retailer", value: "DISTRIBUTOR" },
   ];
 
   const activeOptions = [
