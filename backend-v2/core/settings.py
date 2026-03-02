@@ -1,5 +1,5 @@
 from pathlib import Path
-from environ import environ 
+import environ
 
 env=environ.Env()
 environ.Env.read_env()
@@ -7,13 +7,19 @@ environ.Env.read_env()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-SECRET_KEY = 'django-insecure-yqw*dmmjhm5c(p!!1j%@4(vz6!@^_8mo&h7ve7z=$zo1ou^0z^'
 
+SECRET_KEY = env("SECRET_KEY", default="django-insecure-9xk4%p7v!s@3q^c2m&6z#y$8r_5=+w@a!e0nq^%l7h*b")
 DEBUG = True
+
+JWT_SECRET_KEY = env("JWT_SECRET_KEY")
+JWT_ALGORITHM = "HS256"
 
 ALLOWED_HOSTS = ['*']
 
-
+EXCLUDED_PATHS = [
+    "/api/accounts/login/",
+    "/api/accounts/create/",
+]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -22,21 +28,40 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',
 
     #custom apps
     'accounts',
     'portal',
+    'firm'
 ]
 
+
+AUTH_USER_MODEL = "accounts.User"
+
+# MIDDLEWARE = [
+#     'django.middleware.security.SecurityMiddleware',
+#     'django.contrib.sessions.middleware.SessionMiddleware',
+#     'django.middleware.common.CommonMiddleware',
+#     'django.middleware.csrf.CsrfViewMiddleware',
+#     'django.contrib.auth.middleware.AuthenticationMiddleware',
+#     'django.contrib.messages.middleware.MessageMiddleware',
+#     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+#     'core.middleware.AuthMiddleware',
+# ]
+
+
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'core.middleware.AuthMiddleware',
+    'core.middleware.DisableCSRFCheck',
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    # "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "core.middleware.AuthMiddleware",
 ]
 
 ROOT_URLCONF = 'core.urls'
@@ -59,7 +84,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
-
+ALLOWED_METHODS = ['*']
 
 DATABASES = {
     "default": {
@@ -111,7 +136,3 @@ CORS_ALLOW_HEADERS = [
 ]
 CORS_ORIGIN_ALLOW_ALL = True
 CORS_ALLOW_CREDENTIALS = True
-
-EXCLUDED_PATHS = [
-    "/api/auth/login/",
-]

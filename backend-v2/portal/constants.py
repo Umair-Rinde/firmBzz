@@ -1,13 +1,15 @@
 #Gender Constants
-MALE = 'Male'
+MALE = 'MALE'
 FEMALE = 'FEMALE'
-OTHER = 'Other'
+OTHER = 'OTHER'
 
 #UserType Constants
-ADMIN = 'Admin'
-EMPLOYEE = 'Employee'
-EMPLOYER = 'Employer'
-BDM = 'BDM'
+ADMIN = 'ADMIN'
+FIRM_ADMIN = 'FIRM_ADMIN'
+FIRM_USER = 'FIRM_USER'
+SUPERSELLER_USER = 'SUPERSELLER_USER'
+DISTRIBUTOR_USER = 'DISTRIBUTOR_USER'
+SALES_PERSON = 'SALES_PERSON'
 
 #API Constants
 POST = "POST"
@@ -17,8 +19,3 @@ GET = "GET"
 GETALL = "GETALL"
 PATCH = "PATCH"
 
-FIRM_ADMIN = 'Firm Admin'
-FIRM_USER = 'Firm User'
-SUPERSELLER_USER = 'SuperSeller User'
-DISTRIBUTOR_USER = 'Distributor User'
-SALES_PERSON = 'Sales Person'

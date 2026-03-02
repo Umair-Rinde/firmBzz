@@ -13,12 +13,14 @@ class AuthMiddleware:
         token = request.headers.get("Authorization")
         print(token)
         if request.path.startswith("/api") and request.path not in settings.EXCLUDED_PATHS:
+            if getattr(request, 'user', None) and request.user.is_authenticated:
+                return self.get_response(request)
             if not token:
                 return JsonResponse(
                     data={"msg": "Token not provided"}, status=403
                 )
             try:
-                jwt_data = jwt.decode(token, settings.JWT_SECRET, algorithms=["HS256"])
+                jwt_data = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
                 request.user = User.objects.get(id=jwt_data.get("user_id"))
 
                 response = self.get_response(request)

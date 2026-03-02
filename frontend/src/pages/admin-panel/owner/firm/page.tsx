@@ -16,21 +16,61 @@ import CustomButton from "@/components/ui/custom/custom-button";
 import { FaPlus } from "react-icons/fa";
 import { useState } from "react";
 import FirmDrawer from "./components/firm-form";
+import { FirmInterface } from "@/interfaces/firm";
+import { LuPen } from "react-icons/lu";
+import { DeleteItem } from "@/components/ui/custom/delete-dialog";
 
 export default function OwnerFirmPage() {
-  const columns: ColumnDef<any>[] = [
+  const columns: ColumnDef<FirmInterface>[] = [
+    {
+      header: "Code",
+      accessorKey: "code",
+    },
+    {
+      header: "Name",
+      accessorKey: "name",
+    },
+    {
+      header: "Slug",
+      accessorKey: "slug",
+    },
     {
       header: "Action",
       accessorKey: "Action",
       cell({ row }) {
-        return "";
+        return (
+          <div className="flex justify-start items-center gap-5">
+            <span
+              className="flex gap-1 items-center cursor-pointer text-[#006F6D]"
+              onClick={() => {
+                setOpen(true);
+                setSelectedRow(row?.original);
+              }}
+            >
+              <LuPen className="text-[#12B76A] size-[18px]" />
+            </span>
+            {/* <Separator
+              orientation='vertical'
+              className='!h-[15px] text-red-500'
+            /> */}
+
+            <DeleteItem
+              endPoint={`/firm/${row?.original?.id}/delete/`}
+              itemName={`${row?.original?.name}`}
+              title="Delete Firm"
+              refetchUrl={["/firm/all/"]}
+            />
+          </div>
+        );
       },
     },
   ];
 
   const [open, setOpen] = useState(false);
+  const [selectedRow, setSelectedRow] = useState<FirmInterface | null>(null);
   const handleClose = () => {
     setOpen(false);
+    setSelectedRow(null);
   };
   return (
     <div className="mt-[150px]">
@@ -38,73 +78,16 @@ export default function OwnerFirmPage() {
       <Datagrid
         columns={columns}
         title="Firms"
+        url="/firm/all/"
         extraButtons={
           <CustomButton onClick={() => setOpen(true)}>
             Add Firm <FaPlus />
           </CustomButton>
         }
       />
-      {open && <FirmDrawer handleClose={handleClose} open={open} />}
-      {/* <Card>
-        <CardHeader>
-          <CardTitle>Create New Firm</CardTitle>
-          <CardDescription>
-            Register a new firm into the system.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Formik
-            initialValues={{
-              firmName: "",
-              registrationNumber: "",
-              address: "",
-              ownerEmail: "",
-            }}
-            validationSchema={FirmSchema}
-            onSubmit={(values, { setSubmitting }) => {
-              // Simulate API call
-              setTimeout(() => {
-                alert(JSON.stringify(values, null, 2));
-                setSubmitting(false);
-              }, 1000);
-            }}
-          >
-            {({ isSubmitting }) => (
-              <Form className="space-y-4">
-                <FormikInput
-                  name="firmName"
-                  label="Firm Name"
-                  placeholder="Enter firm name"
-                />
-                <FormikInput
-                  name="registrationNumber"
-                  label="Registration Number"
-                  placeholder="TAX/REG ID"
-                />
-                <FormikInput
-                  name="address"
-                  label="Address"
-                  placeholder="Firm address"
-                />
-                <FormikInput
-                  name="ownerEmail"
-                  label="Owner Email"
-                  placeholder="owner@firm.com"
-                  type="email"
-                />
-
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? "Creating..." : "Create Firm"}
-                </Button>
-              </Form>
-            )}
-          </Formik>
-        </CardContent>
-      </Card> */}
+      {open && (
+        <FirmDrawer handleClose={handleClose} open={open} row={selectedRow} />
+      )}
     </div>
   );
 }

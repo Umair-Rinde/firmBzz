@@ -3,8 +3,7 @@ import { toast } from "sonner";
 import { queryClient } from "./query-client";
 
 export const axios = OgAxios.create({
-  baseURL: "",
-  //   baseURL: process.env.REACT_APP_API_URL || "",
+  baseURL: import.meta.env.VITE_API_URL,
 });
 
 axios.interceptors.request.use(function (req) {
@@ -13,7 +12,7 @@ axios.interceptors.request.use(function (req) {
   if (queryToken) {
     token = queryToken;
   }
-  req.headers["Authorization"] = `Bearer ${token}`;
+  req.headers["Authorization"] = `${token}`;
 
   return req;
 });
@@ -38,5 +37,5 @@ axios.interceptors.response.use(
     } else {
       throw err;
     }
-  }
+  },
 );

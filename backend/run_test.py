@@ -16,7 +16,7 @@ from django.contrib.auth import get_user_model
 
 def create_superuser():
     User = get_user_model()
-    email = 'admin@example.com'
+    email = '@example.com'
     password = 'Admin123!'
     phone = '1234567890'
     full_name = 'Admin User'

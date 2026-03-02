@@ -1,10 +1,10 @@
 #Gender Constants
-MALE = 'Male'
+MALE = 'MALE'
 FEMALE = 'FEMALE'
 OTHER = 'Other'
 
 #UserType Constants
-ADMIN = 'Admin'
+ADMIN = 'ADMIN'
 EMPLOYEE = 'Employee'
 EMPLOYER = 'Employer'
 BDM = 'BDM'

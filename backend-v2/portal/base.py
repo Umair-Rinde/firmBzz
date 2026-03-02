@@ -21,11 +21,12 @@ class BaseModel(models.Model):
 
 #Base Response
 class BaseResponse(Response):
-    def __init__(self, success=True, message="", data=None, status=200, errors=None, **kwargs):
+    def __init__(self, success=True, message="", data=None, status=200, errors=None, token=None, **kwargs):
         response_data = {
             "success": success,
             "message": message,
             "data": data,
+            "token": token,
             "errors": errors,
         }
         super().__init__(data=response_data, status=status, **kwargs)

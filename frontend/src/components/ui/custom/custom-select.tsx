@@ -60,9 +60,12 @@ const CustomSelect = ({
   }
 
   const fieldValue = useMemo(() => {
-    if (propValue) return getOptionValue(propValue);
-    if (name) return getOptionValue(optionsProps?.value);
-    return localValue;
+    let val = "";
+    if (propValue !== undefined && propValue !== null) val = getOptionValue(propValue);
+    else if (name && optionsProps?.value !== undefined && optionsProps?.value !== null) val = getOptionValue(optionsProps?.value);
+    else val = localValue;
+
+    return val !== undefined && val !== null ? String(val) : "";
   }, [propValue, name, optionsProps?.value, getOptionValue, localValue]);
 
   // console.log(optionsProps, "<----------------optionsProps.error");
@@ -74,7 +77,7 @@ const CustomSelect = ({
         value={fieldValue}
         onValueChange={(value) => {
           const selectedItem = options.find(
-            (item) => getOptionValue(item) == value
+            (item) => String(getOptionValue(item)) === value
           );
           if (name) {
             optionsProps?.setValue(selectedItem);
@@ -85,9 +88,8 @@ const CustomSelect = ({
         }}
       >
         <SelectTrigger
-          className={`w-[180px] !h-[44px] !rounded-[8px] shadow-[rgba(10,13,18,0.05)] hover:bg-blue-50 ${className} ${
-            optionsProps.error ? "border-red-500" : "border-[#D5D7DA] "
-          }`}
+          className={`w-[180px] !h-[44px] !rounded-[8px] shadow-[rgba(10,13,18,0.05)] hover:bg-blue-50 ${className} ${optionsProps.error ? "border-red-500" : "border-[#D5D7DA] "
+            }`}
         >
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
@@ -96,8 +98,8 @@ const CustomSelect = ({
             {customMsg && <SelectLabel>{customMsg}</SelectLabel>}
             {options?.map((item) => (
               <SelectItem
-                key={getOptionValue(item)}
-                value={getOptionValue(item)}
+                key={String(getOptionValue(item))}
+                value={String(getOptionValue(item))}
               >
                 {getOptionLabel(item)}
               </SelectItem>
