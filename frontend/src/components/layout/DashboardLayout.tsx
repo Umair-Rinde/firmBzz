@@ -35,6 +35,7 @@ import { FirmInterface } from "@/interfaces/firm";
 import { useQuery } from "@/hooks/useQuerry";
 import CustomSelect from "../ui/custom/custom-select";
 import { Form, Formik } from "formik";
+import { Autocomplete } from "../ui/custom/auto-complete";
 
 export default function DashboardLayout() {
   const { user, logout } = useAuth();
@@ -143,7 +144,7 @@ export default function DashboardLayout() {
   const activeRole = cookies.current_role || user?.role;
 
   const filteredMenu = menuItems.filter((item) =>
-    item.roles.includes(activeRole || "")
+    item.roles.includes(activeRole || ""),
   );
   const { data: FirmData } = useQuery<FirmInterface[]>({
     queryKey: [`/firm/all/`],
@@ -169,9 +170,7 @@ export default function DashboardLayout() {
             </AvatarFallback>
           </Avatar>
           <div className="flex items-start flex-col">
-            <p className="text-[1rem] text-white font-semibold">
-              {user?.name}
-            </p>
+            <p className="text-[1rem] text-white font-semibold">{user?.name}</p>
             <p className="text-[0.75rem] text-white font-normal capitalize">
               {user?.role}
             </p>
@@ -265,7 +264,7 @@ export default function DashboardLayout() {
 
                       {values.role === "firm_admin" && (
                         <div className="flex flex-col gap-2 pb-4">
-                          <CustomSelect
+                          <Autocomplete
                             label="Select Firm"
                             options={FirmData || []}
                             getOptionLabel={(option) => option.name}
@@ -323,10 +322,11 @@ export default function DashboardLayout() {
               key={item.href}
               to={item.href}
               onClick={() => setIsMobileOpen(false)}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
-                ? "bg-primary text-white"
-                : "text-slate-400 hover:text-white hover:bg-slate-800"
-                }`}
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                isActive
+                  ? "bg-primary text-white"
+                  : "text-slate-400 hover:text-white hover:bg-slate-800"
+              }`}
             >
               <item.icon className="h-5 w-5" />
               <span className="font-medium">{item.title}</span>

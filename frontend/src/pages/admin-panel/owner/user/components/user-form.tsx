@@ -1,7 +1,7 @@
+import { Autocomplete } from "@/components/ui/custom/auto-complete";
 import CustomButton from "@/components/ui/custom/custom-button";
 import { Drawer } from "@/components/ui/custom/custom-drawer";
 import CustomInput from "@/components/ui/custom/custom-input";
-import CustomSelect from "@/components/ui/custom/custom-select";
 import { DatePickerComponent } from "@/components/ui/custom/date-picker";
 import { axios } from "@/config/axios";
 import { queryClient } from "@/config/query-client";
@@ -137,7 +137,7 @@ const UserDrawer = ({
                   <CustomInput name="city" label="city" />
                   <CustomInput name="pincode" label="pincode" />
 
-                  <CustomSelect
+                  <Autocomplete
                     label="Gender"
                     // value={SingleUserData ? SingleUserData?.gender : "MALE"}
                     className="w-full"

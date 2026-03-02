@@ -250,3 +250,8 @@
     @apply bg-background text-foreground;
   }
 }
+
+.react-date-picker__wrapper{
+  border: none !important;
+  padding-left: 8px !important;
+}

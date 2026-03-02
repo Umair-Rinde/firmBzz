@@ -1,7 +1,7 @@
+import { Autocomplete } from "@/components/ui/custom/auto-complete";
 import CustomButton from "@/components/ui/custom/custom-button";
 import { Drawer } from "@/components/ui/custom/custom-drawer";
 import CustomInput from "@/components/ui/custom/custom-input";
-import CustomSelect from "@/components/ui/custom/custom-select";
 import { DatePickerComponent as CustomDatePicker } from "@/components/ui/custom/date-picker";
 import { axios } from "@/config/axios";
 import { queryClient } from "@/config/query-client";
@@ -43,7 +43,7 @@ const RetailerConfigDrawer = ({
         : axios.post(`/firm/${firmId}/customers/`, data),
     onSuccess(data) {
       toast.success(
-        id ? "Retailer updated successfully" : "Retailer added successfully"
+        id ? "Retailer updated successfully" : "Retailer added successfully",
       );
       handleClose();
       queryClient.invalidateQueries({
@@ -80,9 +80,10 @@ const RetailerConfigDrawer = ({
     fssai_expiry: row?.fssai_expiry || null,
     gst_expiry: row?.gst_expiry || null,
     business_address: row?.business_address || "",
-    is_active: row?.is_active !== undefined
-      ? activeOptions.find((a) => a.value === row.is_active)
-      : activeOptions[0],
+    is_active:
+      row?.is_active !== undefined
+        ? activeOptions.find((a) => a.value === row.is_active)
+        : activeOptions[0],
   };
 
   return (
@@ -132,7 +133,7 @@ const RetailerConfigDrawer = ({
                       required
                       className="w-full"
                     />
-                    <CustomSelect
+                    <Autocomplete
                       name="customer_type"
                       label="Customer Type"
                       options={customerTypes}
@@ -191,12 +192,12 @@ const RetailerConfigDrawer = ({
                     className="w-full"
                   />
 
-                  <CustomSelect
+                  <Autocomplete
                     name="is_active"
                     label="Status"
                     options={activeOptions}
                     getOptionLabel={(option) => option.label}
-                    getOptionValue={(option) => option.value}
+                    getOptionValue={(option: any) => option.value}
                     required
                     className="w-full"
                   />

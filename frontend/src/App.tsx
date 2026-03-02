@@ -34,15 +34,13 @@ import VendorOrderAddPage from "./pages/admin-panel/firm-admin/vendor-orders/cre
 import InvoicesPage from "./pages/admin-panel/firm-admin/invoices/page";
 import InvoiceCreatePage from "./pages/admin-panel/firm-admin/invoices/create-invoice";
 import InvoiceEditPage from "./pages/admin-panel/firm-admin/invoices/edit-invoice";
-
-const queryClient = new QueryClient();
+import { queryClient } from "./config/query-client";
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <CookiesProvider>
       <AuthProvider>
         <TooltipProvider>
-          <Toaster />
           <Sonner />
           <BrowserRouter>
             <Routes>

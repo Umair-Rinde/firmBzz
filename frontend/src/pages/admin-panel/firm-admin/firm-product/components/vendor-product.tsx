@@ -43,7 +43,7 @@ const VendorProductDrawer = ({
       toast.success(data?.data?.data?.message || "Successful");
       handleClose();
       queryClient.refetchQueries({
-        queryKey: [``],
+        queryKey: [`firm/${cookies.firm}/products/`],
       });
     },
     onError: (resp: any) => {
