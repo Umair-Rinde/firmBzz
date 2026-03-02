@@ -420,7 +420,7 @@ export const Datagrid = ({
               className={cn(
                 "hover:text-secondary-dark hover:bg-secondary-light text-[#414651] text-[0.75rem] w-[60px]  font-semibold",
                 currentPage === totalPages &&
-                  "hover:text-inherit hover:bg-inherit"
+                "hover:text-inherit hover:bg-inherit"
               )}
             >
               Next
@@ -453,12 +453,12 @@ export const Datagrid = ({
             typeof item.value === "string"
               ? item.value
               : Array.isArray(item.value)
-              ? item.value.map(
+                ? item.value.map(
                   (value) =>
                     item.column.optionAccessor &&
                     value[item.column.optionAccessor]
                 )
-              : item.column.optionAccessor &&
+                : item.column.optionAccessor &&
                 item.value[item.column.optionAccessor],
         })),
       },
@@ -551,11 +551,11 @@ export const Datagrid = ({
             visibilityObject: visibilityObject
               ? visibilityObject
               : perfrences?.tableMetaData?.[tableMetaDataKey]
-                  ?.visibilityObject || {},
+                ?.visibilityObject || {},
             columnOrder: columnOrder
               ? columnOrder
               : perfrences?.tableMetaData?.[tableMetaDataKey]?.columnOrder ||
-                [],
+              [],
             search: globalFilter,
             sorting: sorting,
             filters: filters,
@@ -589,7 +589,7 @@ export const Datagrid = ({
 
   function downloadFile(url: string, fileName: string) {
     const a = document.createElement("a");
-    a.href = process.env.REACT_APP_API_BASE_URL + url;
+    a.href = import.meta.env.VITE_API_BASE_URL + url;
 
     a.download = fileName;
     document.body.appendChild(a);
@@ -614,12 +614,12 @@ export const Datagrid = ({
                 typeof item.value === "string"
                   ? item.value
                   : Array.isArray(item.value)
-                  ? item.value.map(
+                    ? item.value.map(
                       (value) =>
                         item.column.optionAccessor &&
                         value[item.column.optionAccessor]
                     )
-                  : item.column.optionAccessor &&
+                    : item.column.optionAccessor &&
                     item.value[item.column.optionAccessor],
             })),
           },
@@ -793,9 +793,9 @@ export const Datagrid = ({
                         {header.isPlaceholder
                           ? null
                           : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext()
-                            )}
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
                         {header.column.getCanSort() &&
                           ({
                             asc: (
@@ -811,11 +811,11 @@ export const Datagrid = ({
                               />
                             ),
                           }[header.column.getIsSorted() as string] ?? (
-                            <TiArrowUnsorted
-                              size={15}
-                              className="text-inherit text-base"
-                            />
-                          ))}
+                              <TiArrowUnsorted
+                                size={15}
+                                className="text-inherit text-base"
+                              />
+                            ))}
                       </div>
                     </div>
                     <div
@@ -832,11 +832,10 @@ export const Datagrid = ({
 
                         style: {
                           transform: header.column.getIsResizing()
-                            ? `translateX(${
-                                1 *
-                                (table.getState().columnSizingInfo
-                                  .deltaOffset ?? 0)
-                              }px)`
+                            ? `translateX(${1 *
+                            (table.getState().columnSizingInfo
+                              .deltaOffset ?? 0)
+                            }px)`
                             : "",
                         },
                       }}

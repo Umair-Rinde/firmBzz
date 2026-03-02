@@ -69,7 +69,7 @@ export default function FirmProductPage() {
       <AppBar title="Products" subTitle={`Create, Update and Delete Product`} />
       <Datagrid
         columns={columns}
-        title="Profucts"
+        title="Products"
         url={`firm/${cookies.firm}/products/`}
         extraButtons={
           <CustomButton onClick={() => setOpen(true)}>

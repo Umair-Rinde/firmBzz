@@ -48,13 +48,12 @@ export default function DashboardLayout() {
   ]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [openRoleDialog, setOpenRoleDialog] = useState(false);
-  const [selectedFirm, setSelectedFirm] = useState<string | null>(cookies.firm);
+  const activeFirm = cookies.firm || user?.firm_slug || null;
   const [selectedRole, setSelectedRole] = useState(
     cookies.current_role || user?.role || "admin",
   );
 
   useEffect(() => {
-    setSelectedFirm(cookies.firm);
     setSelectedRole(cookies.current_role);
   }, []);
   console.log(cookies, "<------- coooo", user?.role);
@@ -88,35 +87,42 @@ export default function DashboardLayout() {
     {
       title: "Firm Products",
       icon: Package,
-      href: `/dashboard/${selectedFirm}/create-vendor-product`,
+      href: `/dashboard/${activeFirm}/create-vendor-product`,
       roles: ["firm_admin"],
       requiresFirm: true,
     },
     {
       title: "Retailers",
       icon: Users,
-      href: `/dashboard/${selectedFirm}/create-retailer`,
+      href: `/dashboard/${activeFirm}/create-retailer`,
       roles: ["firm_admin"],
       requiresFirm: true,
     },
     {
       title: "Vendors",
       icon: Users,
-      href: `/dashboard/${selectedFirm}/vendors`,
+      href: `/dashboard/${activeFirm}/vendors`,
       roles: ["firm_admin"],
       requiresFirm: true,
     },
     {
       title: "Vendor Orders",
       icon: Users,
-      href: `/dashboard/${selectedFirm}/vendor-orders`,
+      href: `/dashboard/${activeFirm}/vendor-orders`,
+      roles: ["firm_admin"],
+      requiresFirm: true,
+    },
+    {
+      title: "Invoices",
+      icon: ShoppingCart,
+      href: `/dashboard/${activeFirm}/invoices`,
       roles: ["firm_admin"],
       requiresFirm: true,
     },
     {
       title: "User Management",
       icon: Users,
-      href: `/dashboard/${selectedFirm}/user-management`,
+      href: `/dashboard/${activeFirm}/user-management`,
       roles: ["firm_admin"],
       requiresFirm: true,
     },
@@ -134,8 +140,10 @@ export default function DashboardLayout() {
     },
   ];
 
+  const activeRole = cookies.current_role || user?.role;
+
   const filteredMenu = menuItems.filter((item) =>
-    item.roles.includes(cookies.current_role || ""),
+    item.roles.includes(activeRole || "")
   );
   const { data: FirmData } = useQuery<FirmInterface[]>({
     queryKey: [`/firm/all/`],
@@ -144,7 +152,6 @@ export default function DashboardLayout() {
   });
 
   const handleSwitchRole = ({ role, firm }) => {
-    setSelectedFirm(firm);
     setCookie("current_role", role, { path: "/" });
     setCookie("firm", firm);
     if (selectedRole === "admin") navigate("/dashboard");
@@ -216,7 +223,7 @@ export default function DashboardLayout() {
           <Formik
             initialValues={{
               role: cookies.current_role ? cookies.current_role : "admin",
-              firm: selectedFirm ? selectedFirm : null,
+              firm: activeFirm ? activeFirm : null,
             }}
             // validationSchema={validationSchema}
             onSubmit={(values) => {

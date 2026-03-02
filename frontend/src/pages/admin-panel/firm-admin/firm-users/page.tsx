@@ -31,15 +31,15 @@ export default function FirmUserManagementPage() {
         },
         {
             header: "Status",
-            accessorKey: "user_is_active",
+            accessorKey: "is_active",
             cell: ({ row }: any) => (
                 <span
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${row.original.user_is_active
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${row.original.is_active
                         ? "bg-green-100 text-green-800"
                         : "bg-red-100 text-red-800"
                         }`}
                 >
-                    {row.original.user_is_active ? "Active" : "Inactive"}
+                    {row.original.is_active ? "Active" : "Inactive"}
                 </span>
             ),
         },

@@ -88,8 +88,8 @@ const FirmUserDrawer = ({
         driving_license: user?.driving_license || "",
         license_expiry: user?.license_expiry || null,
         home_address: user?.home_address || "",
-        is_active: user?.user_is_active !== undefined
-            ? statusOptions.find((s) => s.value === user.user_is_active)
+        is_active: user?.is_active !== undefined
+            ? statusOptions.find((s) => s.value === user.is_active)
             : statusOptions[0],
     };
 

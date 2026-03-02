@@ -31,6 +31,9 @@ import FirmUserManagementPage from "./pages/admin-panel/firm-admin/firm-users/pa
 import VendorListPage from "./pages/admin-panel/firm-admin/vendors/page";
 import VendorOrderListPage from "./pages/admin-panel/firm-admin/vendor-orders/page";
 import VendorOrderAddPage from "./pages/admin-panel/firm-admin/vendor-orders/create-order";
+import InvoicesPage from "./pages/admin-panel/firm-admin/invoices/page";
+import InvoiceCreatePage from "./pages/admin-panel/firm-admin/invoices/create-invoice";
+import InvoiceEditPage from "./pages/admin-panel/firm-admin/invoices/edit-invoice";
 
 const queryClient = new QueryClient();
 
@@ -141,6 +144,31 @@ const App = () => (
                   element={
                     <ProtectedRoute allowedRoles={["firm_admin", "admin"]}>
                       <VendorOrderAddPage />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path=":firmId/invoices"
+                  element={
+                    <ProtectedRoute allowedRoles={["firm_admin", "admin"]}>
+                      <InvoicesPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path=":firmId/invoices/create"
+                  element={
+                    <ProtectedRoute allowedRoles={["firm_admin", "admin"]}>
+                      <InvoiceCreatePage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path=":firmId/invoices/:id"
+                  element={
+                    <ProtectedRoute allowedRoles={["firm_admin", "admin"]}>
+                      <InvoiceEditPage />
                     </ProtectedRoute>
                   }
                 />
