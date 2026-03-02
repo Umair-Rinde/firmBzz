@@ -44,7 +44,7 @@ const FirmUserDrawer = ({
             toast.success(user ? "User updated successfully" : "User added successfully");
             onOpenChange(false);
             if (onSuccess) onSuccess();
-            queryClient.refetchQueries({
+            queryClient.invalidateQueries({
                 queryKey: [`/firm/${firmId}/firm-users/`],
             });
         },

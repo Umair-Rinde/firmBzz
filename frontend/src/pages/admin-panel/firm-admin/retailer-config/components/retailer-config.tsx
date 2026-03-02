@@ -46,7 +46,7 @@ const RetailerConfigDrawer = ({
         id ? "Retailer updated successfully" : "Retailer added successfully"
       );
       handleClose();
-      queryClient.refetchQueries({
+      queryClient.invalidateQueries({
         queryKey: [`firm/${firmId}/customers/`],
       });
     },

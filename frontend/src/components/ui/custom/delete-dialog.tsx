@@ -64,7 +64,7 @@ export const DeleteItem = (props: Props) => {
                   props?.onSuccess && props?.onSuccess();
                   onClose();
                   if (props.refetchUrl)
-                    queryClient.refetchQueries({
+                    queryClient.invalidateQueries({
                       queryKey: props.refetchUrl,
                     });
                 },
