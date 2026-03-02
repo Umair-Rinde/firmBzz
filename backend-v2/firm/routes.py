@@ -322,3 +322,84 @@ class ProductDetailAPIView(APIView):
     )
     def delete(self, request, slug, product_id):
         return apis.ProductCrudService.delete_product(slug, product_id)
+
+
+class InvoiceListCreateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    schema = AutoSchema()
+
+    @extend_schema(
+        summary="List Invoices",
+        description="List all invoices for a specific firm.",
+        tags=["Invoices"]
+    )
+    def get(self, request, slug):
+        return apis.InvoiceService.list_invoices(slug, request.user)
+
+    @extend_schema(
+        summary="Create Invoice",
+        description="Create a new invoice.",
+        tags=["Invoices"]
+    )
+    def post(self, request, slug):
+        return apis.InvoiceService.create_invoice(slug, request.data, request.user)
+
+
+class InvoiceDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    schema = AutoSchema()
+
+    @extend_schema(
+        summary="Get Invoice Details",
+        description="Retrieve details of a specific invoice.",
+        tags=["Invoices"]
+    )
+    def get(self, request, slug, invoice_id):
+        return apis.InvoiceService.get_invoice(slug, invoice_id)
+
+    @extend_schema(
+        summary="Update Invoice",
+        description="Update an existing pending invoice.",
+        tags=["Invoices"]
+    )
+    def put(self, request, slug, invoice_id):
+        return apis.InvoiceService.update_invoice(slug, invoice_id, request.data)
+
+
+class InvoiceApproveAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    schema = AutoSchema()
+
+    @extend_schema(
+        summary="Approve Invoice",
+        description="Approve a pending invoice. Only allowed for firm admins or admin roles.",
+        tags=["Invoices"]
+    )
+    def post(self, request, slug, invoice_id):
+        return apis.InvoiceService.approve_invoice(slug, invoice_id, request.user)
+
+
+class InvoiceRequestChangesAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    schema = AutoSchema()
+
+    @extend_schema(
+        summary="Request Changes to Invoice",
+        description="Request changes to an invoice. Requires a note.",
+        tags=["Invoices"]
+    )
+    def post(self, request, slug, invoice_id):
+        return apis.InvoiceService.request_changes(slug, invoice_id, request.data)
+
+
+class InvoicePricingPreviewAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    schema = AutoSchema()
+
+    @extend_schema(
+        summary="Preview Invoice Pricing",
+        description="Simulate FEFO batch allocation and return estimated cost breakdown per product without modifying inventory.",
+        tags=["Invoices"]
+    )
+    def post(self, request, slug):
+        return apis.InvoiceService.preview_pricing(slug, request.data)

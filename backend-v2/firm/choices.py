@@ -17,3 +17,9 @@ class PaymentStatusChoices(models.TextChoices):
     UNPAID = "UNPAID", "Unpaid"
     PARTIAL = "PARTIAL", "Partial"
     PAID = "PAID", "Paid"
+
+class InvoiceStatusChoices(models.TextChoices):
+    PENDING_APPROVAL = "PENDING_APPROVAL", "Pending Approval"
+    APPROVED = "APPROVED", "Approved"
+    CHANGES_REQUESTED = "CHANGES_REQUESTED", "Changes Requested"
+    REJECTED = "REJECTED", "Rejected"

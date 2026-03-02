@@ -1,9 +1,10 @@
-from .models import Firm, Product, VendorOrder, VendorOrderItem, Vendor, Customer
+from .models import Firm, Product, VendorOrder, VendorOrderItem, Vendor, Customer, Invoice, InvoiceItem
 from accounts.models import FirmUsers
 from .serializers import (
     FirmSerializer, ProductSerializer, VendorOrderSerializer, 
     VendorOrderCreateSerializer, FirmUserSerializer, FirmUserCreateSerializer,
-    FirmUserUpdateSerializer, VendorSerializer, CustomerSerializer
+    FirmUserUpdateSerializer, VendorSerializer, CustomerSerializer, 
+    InvoiceSerializer, InvoiceCreateUpdateSerializer
 )
 from portal.base import BaseResponse
 from django.db import transaction
@@ -578,3 +579,293 @@ class ProductCrudService:
             return BaseResponse(message="Product deleted successfully", status=200)
         except Product.DoesNotExist:
             return BaseResponse(success=False, message="Product not found", status=404)
+
+class InvoiceService:
+    @staticmethod
+    def list_invoices(firm_slug, user):
+        try:
+            firm = Firm.objects.get(slug=firm_slug)
+        except Firm.DoesNotExist:
+            return BaseResponse(success=False, message="Firm not found", status=404)
+
+        invoices = Invoice.objects.filter(firm=firm)
+        
+        # If the user is just a regular firm user, they can only see invoices they created
+        # unless we want them to see all of them. Assuming regular users only see their own.
+        if user.user_type == 'FIRM_USER':
+            # Check if they are ADMIN or FIRM_ADMIN role
+            try:
+                firm_user = FirmUsers.objects.get(user=user, firm=firm)
+                if firm_user.role not in ['ADMIN', 'FIRM_ADMIN']:
+                    invoices = invoices.filter(created_by=user)
+            except FirmUsers.DoesNotExist:
+                invoices = invoices.filter(created_by=user)
+
+        serializer = InvoiceSerializer(invoices, many=True)
+        data = {"rows": serializer.data, "count": invoices.count()}
+        return BaseResponse(data=data, status=200)
+
+    @staticmethod
+    def create_invoice(firm_slug, data, user):
+        try:
+            firm = Firm.objects.get(slug=firm_slug)
+        except Firm.DoesNotExist:
+            return BaseResponse(success=False, message="Firm not found", status=404)
+
+        # Inject firm ID
+        data['firm'] = firm.id
+
+        serializer = InvoiceCreateUpdateSerializer(data=data, context={'request_user': user})
+        if serializer.is_valid():
+            with transaction.atomic():
+                invoice = serializer.save(firm=firm)
+                response_serializer = InvoiceSerializer(invoice)
+                return BaseResponse(
+                    message="Invoice created successfully",
+                    data=response_serializer.data,
+                    status=201
+                )
+        return BaseResponse(
+            success=False,
+            message="Invalid data",
+            errors=serializer.errors,
+            status=400
+        )
+
+    @staticmethod
+    def get_invoice(firm_slug, invoice_id):
+        try:
+            firm = Firm.objects.get(slug=firm_slug)
+        except Firm.DoesNotExist:
+            return BaseResponse(success=False, message="Firm not found", status=404)
+
+        try:
+            invoice = Invoice.objects.get(id=invoice_id, firm=firm)
+            serializer = InvoiceSerializer(invoice)
+            return BaseResponse(data=serializer.data, status=200)
+        except Invoice.DoesNotExist:
+            return BaseResponse(success=False, message="Invoice not found", status=404)
+
+    @staticmethod
+    def update_invoice(firm_slug, invoice_id, data):
+        try:
+            firm = Firm.objects.get(slug=firm_slug)
+        except Firm.DoesNotExist:
+            return BaseResponse(success=False, message="Firm not found", status=404)
+
+        try:
+            invoice = Invoice.objects.get(id=invoice_id, firm=firm)
+        except Invoice.DoesNotExist:
+            return BaseResponse(success=False, message="Invoice not found", status=404)
+
+        if invoice.status == 'APPROVED':
+            return BaseResponse(success=False, message="Cannot edit an approved invoice", status=400)
+
+        serializer = InvoiceCreateUpdateSerializer(invoice, data=data, partial=True)
+        if serializer.is_valid():
+            with transaction.atomic():
+                # If changes were requested, and the creator updates it, we could move it back to pending
+                # or let it stay until approved. Moving back to pending makes sense.
+                invoice = serializer.save()
+                invoice.status = 'PENDING_APPROVAL'
+                invoice.rejection_note = None
+                invoice.save()
+
+                response_serializer = InvoiceSerializer(invoice)
+                return BaseResponse(
+                    message="Invoice updated successfully",
+                    data=response_serializer.data,
+                    status=200
+                )
+        return BaseResponse(
+            success=False,
+            message="Invalid data",
+            errors=serializer.errors,
+            status=400
+        )
+        
+    @staticmethod
+    def _generate_invoice_number(firm):
+        # Format: FIRMCODE-INV-00001
+        last_invoice = Invoice.objects.filter(firm=firm, invoice_number__isnull=False).order_by('invoice_number').last()
+        if last_invoice and last_invoice.invoice_number:
+            try:
+                prefix, num_str = last_invoice.invoice_number.rsplit('-', 1)
+                num = int(num_str) + 1
+            except ValueError:
+                num = 1
+        else:
+            num = 1
+        
+        return f"{firm.code.upper()}-INV-{num:05d}"
+
+    @staticmethod
+    def approve_invoice(firm_slug, invoice_id, user):
+        try:
+            firm = Firm.objects.get(slug=firm_slug)
+        except Firm.DoesNotExist:
+            return BaseResponse(success=False, message="Firm not found", status=404)
+
+        # try:
+        #     invoice = Invoice.objects.select_for_update().get(id=invoice_id, firm=firm)
+        # except Invoice.DoesNotExist:
+        #     return BaseResponse(success=False, message="Invoice not found", status=404)
+
+        # if invoice.status == 'APPROVED':
+        #     return BaseResponse(success=False, message="Invoice is already approved", status=400)
+
+        with transaction.atomic():  # ✅ Start transaction FIRST
+
+            try:
+                invoice = Invoice.objects.select_for_update().get(id=invoice_id, firm=firm)
+            except Invoice.DoesNotExist:
+                return BaseResponse(success=False, message="Invoice not found", status=404)
+            
+            if invoice.status == 'APPROVED':
+                return BaseResponse(success=False, message="Invoice is already approved", status=400)
+
+            invoice.status = 'APPROVED'
+            invoice.approved_by = user
+            invoice.rejection_note = None
+
+            # ⚠️ Important: invoice number generation should also be inside txn
+            invoice.invoice_number = InvoiceService._generate_invoice_number(firm)
+
+            invoice.save()
+
+            response_serializer = InvoiceSerializer(invoice)
+
+            return BaseResponse(
+                message="Invoice approved successfully",
+                data=response_serializer.data,
+                status=200
+            )
+
+    @staticmethod
+    def request_changes(firm_slug, invoice_id, data):
+        try:
+            firm = Firm.objects.get(slug=firm_slug)
+        except Firm.DoesNotExist:
+            return BaseResponse(success=False, message="Firm not found", status=404)
+
+        try:
+            invoice = Invoice.objects.get(id=invoice_id, firm=firm)
+        except Invoice.DoesNotExist:
+            return BaseResponse(success=False, message="Invoice not found", status=404)
+
+        if invoice.status == 'APPROVED':
+            return BaseResponse(success=False, message="Cannot request changes on an approved invoice", status=400)
+
+        note = data.get('note', '')
+        if not note:
+            return BaseResponse(success=False, message="Change request must include a note", status=400)
+
+        invoice.status = 'CHANGES_REQUESTED'
+        invoice.rejection_note = note
+        invoice.save()
+
+        response_serializer = InvoiceSerializer(invoice)
+        return BaseResponse(
+            message="Changes requested successfully",
+            data=response_serializer.data,
+            status=200
+        )
+
+    @staticmethod
+    def preview_pricing(firm_slug, data):
+        """
+        Simulate FEFO batch allocation and return the estimated cost breakdown
+        without actually creating an invoice or modifying any inventory.
+        
+        Expects: { customer: <id>, items: [ { product: <id>, quantity: <int> } ] }
+        Returns per-item allocation breakdown with rates and totals.
+        """
+        from .models import ProductBatch
+        from django.db.models import F
+
+        try:
+            firm = Firm.objects.get(slug=firm_slug)
+        except Firm.DoesNotExist:
+            return BaseResponse(success=False, message="Firm not found", status=404)
+
+        customer_id = data.get('customer')
+        items = data.get('items', [])
+
+        if not customer_id:
+            return BaseResponse(success=False, message="customer is required", status=400)
+
+        try:
+            customer = Customer.objects.get(id=customer_id, firm=firm)
+        except Customer.DoesNotExist:
+            return BaseResponse(success=False, message="Customer not found", status=404)
+
+        preview_items = []
+        grand_total = 0
+
+        for req_item in items:
+            product_id = req_item.get('product')
+            requested_quantity = req_item.get('quantity', 0)
+
+            if not product_id or requested_quantity <= 0:
+                continue
+
+            try:
+                product = Product.objects.get(id=product_id, firm=firm)
+            except Product.DoesNotExist:
+                return BaseResponse(success=False, message=f"Product {product_id} not found", status=404)
+
+            # Simulate FEFO without modifying inventory (we track simulated remaining)
+            batches = list(
+                ProductBatch.objects.filter(
+                    product=product,
+                    quantity_remaining__gt=0
+                ).order_by(F('expiry_date').asc(nulls_last=True), 'created_on')
+            )
+
+            remaining_to_allocate = requested_quantity
+            item_breakdown = []
+            item_total = 0
+
+            for batch in batches:
+                if remaining_to_allocate <= 0:
+                    break
+
+                qty_to_take = min(batch.quantity_remaining, remaining_to_allocate)
+                remaining_to_allocate -= qty_to_take
+
+                rate = batch.selling_price_super_seller if customer.customer_type == 'SUPER_SELLER' else batch.selling_price_distributor
+                amount = qty_to_take * rate
+                item_total += amount
+
+                item_breakdown.append({
+                    'batch_number': batch.batch_number,
+                    'expiry_date': batch.expiry_date.strftime('%Y-%m-%d') if batch.expiry_date else None,
+                    'quantity': qty_to_take,
+                    'rate': str(rate),
+                    'amount': str(amount),
+                })
+
+            if remaining_to_allocate > 0:
+                return BaseResponse(
+                    success=False,
+                    message=f"Insufficient stock for '{product.name}'. Requested {requested_quantity}, available {requested_quantity - remaining_to_allocate}.",
+                    status=400
+                )
+
+            grand_total += item_total
+            preview_items.append({
+                'product': str(product.id),
+                'product_name': product.name,
+                'requested_quantity': requested_quantity,
+                'estimated_total': str(item_total),
+                'batches': item_breakdown,
+            })
+
+        return BaseResponse(
+            data={
+                'items': preview_items,
+                'grand_total': str(grand_total),
+                'customer_type': customer.customer_type,
+            },
+            status=200
+        )

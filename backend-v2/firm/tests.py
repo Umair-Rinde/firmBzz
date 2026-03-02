@@ -33,7 +33,7 @@ class FirmAPITests(TestCase):
         # And BaseResponse likely returns a dictionary.
         # Let's verify the content.
         self.assertTrue(response.data['success'])
-        self.assertEqual(len(response.data['data']), 2)
-        firm_names = [f['name'] for f in response.data['data']]
+        self.assertEqual(len(response.data['data']['rows']), 2)
+        firm_names = [f['name'] for f in response.data['data']['rows']]
         self.assertIn('Firm 1', firm_names)
         self.assertIn('Firm 2', firm_names)

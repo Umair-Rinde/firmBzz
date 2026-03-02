@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Firm, Product, Customer, Vendor, ProductBatch, VendorOrder, VendorOrderItem
+from .models import Firm, Product, Customer, Vendor, ProductBatch, VendorOrder, VendorOrderItem, Invoice, InvoiceItem
 from accounts.models import User, FirmUsers
 from accounts.choices import UserTypeChoices
 
@@ -7,16 +7,23 @@ class FirmSerializer(serializers.ModelSerializer):
     class Meta:
         model = Firm
         fields = ["id", "name", "code", "slug", "is_active", "created_on"]
-        read_only_fields = ["slug", "created_on", "is_active"]
+        read_only_fields = ["slug", "created_on"]
 
 class ProductSerializer(serializers.ModelSerializer):
+    available_quantity = serializers.SerializerMethodField()
+    
     class Meta:
         model = Product
         fields = [
             "id", "name", "slug", "description", "hsn_code", "image",
-            "category", "firm", "created_on"
+            "category", "firm", "created_on", "available_quantity"
         ]
-        read_only_fields = ["slug", "firm", "created_on"]
+        read_only_fields = ["slug", "firm", "created_on", "available_quantity"]
+
+    def get_available_quantity(self, obj):
+        from django.db.models import Sum
+        total = obj.batches.aggregate(Sum('quantity_remaining'))['quantity_remaining__sum']
+        return total if total is not None else 0
 
 
 class ProductBatchSerializer(serializers.ModelSerializer):
@@ -137,7 +144,7 @@ class FirmUserSerializer(serializers.ModelSerializer):
     user_phone = serializers.CharField(source='user.phone', read_only=True)
     user_username = serializers.CharField(source='user.username', read_only=True)
     user_gender = serializers.CharField(source='user.gender', read_only=True)
-    user_is_active = serializers.BooleanField(source='user.is_active', read_only=True)
+    is_active = serializers.BooleanField(source='user.is_active', read_only=True)
     role_display = serializers.CharField(source='get_role_display', read_only=True)
     firm_name = serializers.CharField(source='firm.name', read_only=True)
 
@@ -145,7 +152,7 @@ class FirmUserSerializer(serializers.ModelSerializer):
         model = FirmUsers
         fields = [
             'id', 'user', 'user_email', 'user_full_name', 'user_phone',
-            'user_username', 'user_gender', 'user_is_active', 'firm', 'firm_name',
+            'user_username', 'user_gender', 'is_active', 'firm', 'firm_name',
             'role', 'role_display', 'aadhaar_number', 'pan_number',
             'driving_license', 'license_expiry', 'home_address',
             'profile_photo', 'created_on'
@@ -222,7 +229,7 @@ class FirmUserUpdateSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         user_data = validated_data.pop('user', {})
-        password = user_data.pop('password', None)
+        password = validated_data.pop('password', None)
 
         # Update User fields
         user = instance.user
@@ -239,4 +246,175 @@ class FirmUserUpdateSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
 
         instance.save()
+        return instance
+
+class InvoiceItemSerializer(serializers.ModelSerializer):
+    """Read-only: serializes InvoiceItem for display, including batch info and amount."""
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    batch_number = serializers.CharField(source='product_batch.batch_number', read_only=True, default='')
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    
+    class Meta:
+        model = InvoiceItem
+        fields = [
+            "id", "product", "product_name", "product_batch", "batch_number", "quantity", "rate", "amount", "created_on"
+        ]
+        read_only_fields = ["created_on", "amount", "rate", "product_batch", "batch_number", "product_name"]
+
+
+class InvoiceItemInputSerializer(serializers.Serializer):
+    """Write-only: accepts just product + quantity; rate is determined via FEFO on the backend."""
+    product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
+    quantity = serializers.IntegerField(min_value=1)
+
+
+class InvoiceSerializer(serializers.ModelSerializer):
+    customer_name = serializers.CharField(source='customer.business_name', read_only=True)
+    customer_type = serializers.CharField(source='customer.customer_type', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    created_by_name = serializers.CharField(source='created_by.full_name', read_only=True, default='')
+    approved_by_name = serializers.CharField(source='approved_by.full_name', read_only=True, default='')
+    items = InvoiceItemSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = Invoice
+        fields = [
+            "id", "firm", "customer", "customer_name", "customer_type", "slug", 
+            "invoice_number", "total_amount", "status", "status_display", 
+            "rejection_note", "created_by", "created_by_name", "approved_by", 
+            "approved_by_name", "items", "created_on"
+        ]
+        read_only_fields = ["slug", "firm", "created_on", "invoice_number", "total_amount", "created_by", "approved_by", "status", "rejection_note"]
+
+
+class InvoiceCreateUpdateSerializer(serializers.ModelSerializer):
+    items = InvoiceItemInputSerializer(many=True)
+    
+    class Meta:
+        model = Invoice
+        fields = [
+            "customer", "items"
+        ]
+    
+    def _allocate_batches(self, product, requested_quantity, customer):
+        from .models import ProductBatch
+        from django.db.models import F
+        from rest_framework.exceptions import ValidationError
+        
+        # Order by expiry date (nulls last) and then created_on
+        batches = ProductBatch.objects.filter(
+            product=product, 
+            quantity_remaining__gt=0
+        ).order_by(F('expiry_date').asc(nulls_last=True), 'created_on')
+        
+        allocations = []
+        remaining_to_allocate = requested_quantity
+        
+        for batch in batches:
+            if remaining_to_allocate <= 0:
+                break
+                
+            qty_to_take = min(batch.quantity_remaining, remaining_to_allocate)
+            remaining_to_allocate -= qty_to_take
+            batch.quantity_remaining -= qty_to_take
+            
+            # Decide rate based on customer type
+            rate = batch.selling_price_super_seller if customer.customer_type == 'SUPER_SELLER' else batch.selling_price_distributor
+            
+            allocations.append({
+                'batch': batch,
+                'quantity': qty_to_take,
+                'rate': rate
+            })
+            
+        if remaining_to_allocate > 0:
+            raise ValidationError(f"Insufficient stock for {product.name}. Required {requested_quantity}, only {requested_quantity - remaining_to_allocate} available.")
+            
+        return allocations
+
+    def create(self, validated_data):
+        from django.db import transaction
+        
+        items_data = validated_data.pop('items')
+        customer = validated_data.get('customer')
+        
+        user = self.context.get('request_user')
+        if user:
+            validated_data['created_by'] = user
+            
+        with transaction.atomic():
+            invoice = Invoice.objects.create(**validated_data)
+            
+            total_amount = 0
+            
+            # For each requested item, allocate from batches
+            for item_data in items_data:
+                product = item_data['product']
+                requested_quantity = item_data['quantity']
+                
+                allocations = self._allocate_batches(product, requested_quantity, customer)
+                
+                for alloc in allocations:
+                    batch = alloc['batch']
+                    batch.save() # save the deducted quantity
+                    
+                    item = InvoiceItem.objects.create(
+                        invoice=invoice, 
+                        product=product,
+                        product_batch=batch,
+                        quantity=alloc['quantity'],
+                        rate=alloc['rate']
+                    )
+                    total_amount += (item.quantity * item.rate)
+                
+            invoice.total_amount = total_amount
+            invoice.save()
+            
+        return invoice
+    
+    def update(self, instance, validated_data):
+        from django.db import transaction
+        items_data = validated_data.pop('items', None)
+        customer = validated_data.get('customer', instance.customer)
+        
+        with transaction.atomic():
+            # Update invoice fields
+            for attr, value in validated_data.items():
+                setattr(instance, attr, value)
+            
+            # If items are updated, restore old batches and re-allocate
+            if items_data is not None:
+                # Restore quantities to batches
+                for old_item in instance.items.all():
+                    if old_item.product_batch:
+                        old_item.product_batch.quantity_remaining += old_item.quantity
+                        old_item.product_batch.save()
+                
+                # Delete existing items
+                instance.items.all().delete()
+                
+                total_amount = 0
+                for item_data in items_data:
+                    product = item_data['product']
+                    requested_quantity = item_data['quantity']
+                    
+                    allocations = self._allocate_batches(product, requested_quantity, customer)
+                    
+                    for alloc in allocations:
+                        batch = alloc['batch']
+                        batch.save()
+                        
+                        item = InvoiceItem.objects.create(
+                            invoice=instance,
+                            product=product,
+                            product_batch=batch,
+                            quantity=alloc['quantity'],
+                            rate=alloc['rate']
+                        )
+                        total_amount += (item.quantity * item.rate)
+                        
+                instance.total_amount = total_amount
+                
+            instance.save()
+            
         return instance

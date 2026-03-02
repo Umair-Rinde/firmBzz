@@ -249,3 +249,58 @@ class VendorOrderItem(BaseModel):
             self.save()
             return self.product_batch
         return None
+
+class Invoice(BaseModel):
+    """Invoice generated for a Customer (Super Seller or Distributor)"""
+    from .choices import InvoiceStatusChoices
+    
+    firm = models.ForeignKey(Firm, on_delete=models.CASCADE, related_name='invoices')
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='invoices')
+    slug = models.SlugField(unique=True, blank=True)
+    
+    invoice_number = models.CharField(max_length=100, blank=True, null=True, unique=True)
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    
+    status = models.CharField(
+        max_length=20,
+        choices=InvoiceStatusChoices.choices,
+        default=InvoiceStatusChoices.PENDING_APPROVAL
+    )
+    
+    rejection_note = models.TextField(blank=True, null=True)
+    
+    created_by = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True, related_name='created_invoices')
+    approved_by = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_invoices')
+
+    class Meta:
+        ordering = ['-created_on']
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            import uuid
+            self.slug = slugify(f"inv-{uuid.uuid4().hex[:8]}")
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Invoice {self.invoice_number or self.slug} - {self.customer.business_name}"
+
+
+class InvoiceItem(BaseModel):
+    """Line items for an Invoice"""
+    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name='items')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='invoice_items')
+    product_batch = models.ForeignKey('ProductBatch', on_delete=models.SET_NULL, null=True, related_name='invoice_items')
+    
+    quantity = models.IntegerField(default=1)
+    rate = models.DecimalField(max_digits=10, decimal_places=2, help_text="Price per unit depending on customer type")
+    
+    class Meta:
+        ordering = ['created_on']
+
+    def __str__(self):
+        return f"{self.product.name} - {self.quantity} units (Invoice: {self.invoice.id})"
+    
+    @property
+    def amount(self):
+        """Calculate total amount for this line item"""
+        return self.quantity * self.rate

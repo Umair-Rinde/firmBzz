@@ -25,4 +25,10 @@ urlpatterns = [
     path('<slug:slug>/vendor-orders/<uuid:order_id>/', routes.VendorOrderDetailAPIView.as_view()),
     path('<slug:slug>/vendor-orders/<uuid:order_id>/receive/', routes.VendorOrderReceiveAPIView.as_view()),
 
+    # Invoice URLs
+    path('<slug:slug>/invoices/', routes.InvoiceListCreateAPIView.as_view()),
+    path('<slug:slug>/invoices/preview-pricing/', routes.InvoicePricingPreviewAPIView.as_view()),
+    path('<slug:slug>/invoices/<uuid:invoice_id>/', routes.InvoiceDetailAPIView.as_view()),
+    path('<slug:slug>/invoices/<uuid:invoice_id>/approve/', routes.InvoiceApproveAPIView.as_view()),
+    path('<slug:slug>/invoices/<uuid:invoice_id>/request-changes/', routes.InvoiceRequestChangesAPIView.as_view()),
 ]
