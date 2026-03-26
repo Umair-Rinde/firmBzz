@@ -9,6 +9,63 @@ from .serializers import (
 from portal.base import BaseResponse
 from django.db import transaction
 from django.utils import timezone
+from django.db.models import Q
+
+
+def _get_pg_limit_q(params):
+    try:
+        pg = int(params.get("pg") or 0)
+    except:
+        pg = 0
+    try:
+        limit = int(params.get("limit") or 20)
+    except:
+        limit = 20
+    if pg < 0:
+        pg = 0
+    if limit <= 0:
+        limit = 20
+    q = (params.get("q") or "").strip()
+    return pg, limit, q
+
+
+def _build_search_filter(model, q, extra_fields=None, ignore_fields=None):
+    if not q:
+        return Q()
+
+    ignore_fields = set(ignore_fields or [])
+    fields = []
+    try:
+        fields = [f.name for f in model._meta.fields if not f.is_relation]
+    except:
+        fields = []
+
+    if extra_fields:
+        fields.extend(extra_fields)
+
+    search_q = Q()
+    for field in fields:
+        if field in ignore_fields:
+            continue
+        search_q |= Q(**{f"{field}__icontains": q})
+    return search_q
+
+
+def _apply_datagrid(queryset, model, params, extra_search_fields=None, ignore_fields=None):
+    pg, limit, q = _get_pg_limit_q(params)
+    if q:
+        queryset = queryset.filter(
+            _build_search_filter(
+                model=model,
+                q=q,
+                extra_fields=extra_search_fields,
+                ignore_fields=ignore_fields,
+            )
+        )
+    count = queryset.count()
+    start = pg * limit
+    end = start + limit
+    return queryset[start:end], count
 
 class FirmService:
     @staticmethod
@@ -45,10 +102,23 @@ class FirmService:
             )
 
     @staticmethod
-    def list_firms():
-        firms = Firm.objects.all()
-        serializer = FirmSerializer(firms, many=True)
-        data = {"rows": serializer.data, "count": firms.count()}
+    def list_firms(user=None, params=None):
+        # Admins can see all firms; others only see firms they belong to
+        if user and getattr(user, "user_type", None) != "ADMIN":
+            firms = Firm.objects.filter(firm_users__user=user).distinct()
+        else:
+            firms = Firm.objects.all()
+
+        params = params or {}
+        page_qs, count = _apply_datagrid(
+            queryset=firms.order_by("name"),
+            model=Firm,
+            params=params,
+            extra_search_fields=None,
+            ignore_fields=["id"],
+        )
+        serializer = FirmSerializer(page_qs, many=True)
+        data = {"rows": serializer.data, "count": count}
         return BaseResponse(
             data=data,
             status=200
@@ -119,7 +189,7 @@ class ProductService:
         )
 
     @staticmethod
-    def list_products(firm_slug):
+    def list_products(firm_slug, params=None):
         try:
             firm = Firm.objects.get(slug=firm_slug)
         except Firm.DoesNotExist:
@@ -129,9 +199,17 @@ class ProductService:
                 status=404
             )
         
-        products = Product.objects.filter(firm=firm)
-        serializer = ProductSerializer(products, many=True)
-        data = {"rows": serializer.data, "count": products.count()}
+        products = Product.objects.filter(firm=firm).order_by("-created_on")
+        params = params or {}
+        page_qs, count = _apply_datagrid(
+            queryset=products,
+            model=Product,
+            params=params,
+            extra_search_fields=None,
+            ignore_fields=["id", "firm"],
+        )
+        serializer = ProductSerializer(page_qs, many=True)
+        data = {"rows": serializer.data, "count": count}
         return BaseResponse(
             data=data,
             status=200
@@ -173,7 +251,7 @@ class VendorOrderService:
         )
     
     @staticmethod
-    def list_orders(firm_slug, filters=None):
+    def list_orders(firm_slug, filters=None, params=None):
         """List all vendor orders for a firm"""
         try:
             firm = Firm.objects.get(slug=firm_slug)
@@ -184,7 +262,7 @@ class VendorOrderService:
                 status=404
             )
         
-        orders = VendorOrder.objects.filter(firm=firm)
+        orders = VendorOrder.objects.filter(firm=firm).order_by("-order_date", "-created_on")
         
         # Apply filters if provided
         if filters:
@@ -195,8 +273,17 @@ class VendorOrderService:
             if 'payment_status' in filters:
                 orders = orders.filter(payment_status=filters['payment_status'])
         
-        serializer = VendorOrderSerializer(orders, many=True)
-        data = {"rows": serializer.data, "count": orders.count()}
+        params = params or {}
+        page_qs, count = _apply_datagrid(
+            queryset=orders,
+            model=VendorOrder,
+            params=params,
+            extra_search_fields=["vendor__vendor_name"],
+            ignore_fields=["id", "firm", "vendor"],
+        )
+
+        serializer = VendorOrderSerializer(page_qs, many=True)
+        data = {"rows": serializer.data, "count": count}
         return BaseResponse(
             data=data,
             status=200
@@ -355,7 +442,7 @@ class VendorOrderService:
 
 class FirmUserService:
     @staticmethod
-    def list_firm_users(firm_slug):
+    def list_firm_users(firm_slug, params=None):
         try:
             firm = Firm.objects.get(slug=firm_slug)
         except Firm.DoesNotExist:
@@ -364,10 +451,25 @@ class FirmUserService:
         # Exclude admin and owner users from firm user management
         firm_users = FirmUsers.objects.filter(
             firm=firm,
-        ).exclude(user__user_type='ADMIN')
+        ).exclude(user__user_type='ADMIN').select_related("user", "firm").order_by("-created_on")
 
-        serializer = FirmUserSerializer(firm_users, many=True)
-        data = {"rows": serializer.data, "count": firm_users.count()}
+        params = params or {}
+        page_qs, count = _apply_datagrid(
+            queryset=firm_users,
+            model=FirmUsers,
+            params=params,
+            extra_search_fields=[
+                "user__email",
+                "user__full_name",
+                "user__phone",
+                "user__username",
+                "firm__name",
+            ],
+            ignore_fields=["id", "user", "firm"],
+        )
+
+        serializer = FirmUserSerializer(page_qs, many=True)
+        data = {"rows": serializer.data, "count": count}
         return BaseResponse(data=data, status=200)
 
     @staticmethod
@@ -438,11 +540,19 @@ class FirmUserService:
 
 class VendorService:
     @staticmethod
-    def list_vendors(firm_slug):
+    def list_vendors(firm_slug, params=None):
         try:
-            vendors = Vendor.objects.filter(firm__slug=firm_slug)
-            serializer = VendorSerializer(vendors, many=True)
-            data = {"rows": serializer.data, "count": vendors.count()}
+            vendors = Vendor.objects.filter(firm__slug=firm_slug).order_by("-created_on")
+            params = params or {}
+            page_qs, count = _apply_datagrid(
+                queryset=vendors,
+                model=Vendor,
+                params=params,
+                extra_search_fields=None,
+                ignore_fields=["id", "firm"],
+            )
+            serializer = VendorSerializer(page_qs, many=True)
+            data = {"rows": serializer.data, "count": count}
             return BaseResponse(data=data, status=200)
         except Exception as e:
             return BaseResponse(success=False, message=str(e), status=500)
@@ -494,11 +604,19 @@ class VendorService:
 
 class CustomerService:
     @staticmethod
-    def list_customers(firm_slug):
+    def list_customers(firm_slug, params=None):
         try:
-            customers = Customer.objects.filter(firm__slug=firm_slug)
-            serializer = CustomerSerializer(customers, many=True)
-            data = {"rows": serializer.data, "count": customers.count()}
+            customers = Customer.objects.filter(firm__slug=firm_slug).order_by("-created_on")
+            params = params or {}
+            page_qs, count = _apply_datagrid(
+                queryset=customers,
+                model=Customer,
+                params=params,
+                extra_search_fields=None,
+                ignore_fields=["id", "firm"],
+            )
+            serializer = CustomerSerializer(page_qs, many=True)
+            data = {"rows": serializer.data, "count": count}
             return BaseResponse(data=data, status=200)
         except Exception as e:
             return BaseResponse(success=False, message=str(e), status=500)
@@ -582,13 +700,13 @@ class ProductCrudService:
 
 class InvoiceService:
     @staticmethod
-    def list_invoices(firm_slug, user):
+    def list_invoices(firm_slug, user, params=None):
         try:
             firm = Firm.objects.get(slug=firm_slug)
         except Firm.DoesNotExist:
             return BaseResponse(success=False, message="Firm not found", status=404)
 
-        invoices = Invoice.objects.filter(firm=firm)
+        invoices = Invoice.objects.filter(firm=firm).select_related("customer", "created_by", "approved_by").order_by("-created_on")
         
         # If the user is just a regular firm user, they can only see invoices they created
         # unless we want them to see all of them. Assuming regular users only see their own.
@@ -601,8 +719,20 @@ class InvoiceService:
             except FirmUsers.DoesNotExist:
                 invoices = invoices.filter(created_by=user)
 
-        serializer = InvoiceSerializer(invoices, many=True)
-        data = {"rows": serializer.data, "count": invoices.count()}
+        params = params or {}
+        page_qs, count = _apply_datagrid(
+            queryset=invoices,
+            model=Invoice,
+            params=params,
+            extra_search_fields=[
+                "customer__business_name",
+                "invoice_number",
+            ],
+            ignore_fields=["id", "firm", "customer", "created_by", "approved_by"],
+        )
+
+        serializer = InvoiceSerializer(page_qs, many=True)
+        data = {"rows": serializer.data, "count": count}
         return BaseResponse(data=data, status=200)
 
     @staticmethod

@@ -3,6 +3,7 @@ from .models import User
 
 class UserSerializer(serializers.ModelSerializer):
     firm = serializers.SerializerMethodField()
+    firms = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -10,7 +11,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_firm(self, obj):
         from .models import FirmUsers
-        firm_user = FirmUsers.objects.filter(user=obj).first()
+        firm_user = FirmUsers.objects.filter(user=obj).select_related("firm").first()
         if firm_user:
             return {
                 "id": firm_user.firm.id,
@@ -19,6 +20,23 @@ class UserSerializer(serializers.ModelSerializer):
                 "role": firm_user.role
             }
         return None
+
+    def get_firms(self, obj):
+        from .models import FirmUsers
+        memberships = (
+            FirmUsers.objects.filter(user=obj)
+            .select_related("firm")
+            .order_by("firm__name")
+        )
+        return [
+            {
+                "id": m.firm.id,
+                "name": m.firm.name,
+                "slug": m.firm.slug,
+                "role": m.role,
+            }
+            for m in memberships
+        ]
 
 class UserCreateSerializer(serializers.ModelSerializer):
     class Meta:

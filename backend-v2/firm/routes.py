@@ -3,6 +3,24 @@ from rest_framework.permissions import IsAuthenticated
 from . import apis
 from drf_spectacular.openapi import AutoSchema
 from drf_spectacular.utils import extend_schema
+from portal.base import BaseResponse
+from .models import Firm
+
+def _enforce_firm_context(request, slug):
+    # If firm_id is present in token, the URL firm slug must match it.
+    # Admin can access across firms.
+    try:
+        if getattr(request.user, "user_type", None) == "ADMIN":
+            return None
+        token_firm_id = getattr(request, "firm_id", None)
+        if not token_firm_id:
+            return None
+        firm = Firm.objects.only("id").get(slug=slug)
+        if str(firm.id) != str(token_firm_id):
+            return BaseResponse(success=False, message="Forbidden (wrong firm)", status=403)
+        return None
+    except Firm.DoesNotExist:
+        return BaseResponse(success=False, message="Firm not found", status=404)
 
 
 class FirmCreateAPIView(APIView):
@@ -28,7 +46,7 @@ class FirmListAPIView(APIView):
         tags=["Firm"]
     )
     def get(self, request):
-        return apis.FirmService.list_firms()
+        return apis.FirmService.list_firms(user=request.user, params=request.GET)
 
 
 class FirmDetailAPIView(APIView):
@@ -41,6 +59,9 @@ class FirmDetailAPIView(APIView):
         tags=["Firm"]
     )
     def get(self, request, slug):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
         return apis.FirmService.get_firm(slug)
 
 
@@ -54,7 +75,10 @@ class ProductListCreateAPIView(APIView):
         tags=["Products"]
     )
     def get(self, request, slug):
-        return apis.ProductService.list_products(slug)
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
+        return apis.ProductService.list_products(slug, params=request.GET)
 
     @extend_schema(
         summary="Create Product",
@@ -62,6 +86,9 @@ class ProductListCreateAPIView(APIView):
         tags=["Products"]
     )
     def post(self, request, slug):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
         return apis.ProductService.create_product(slug, request.data)
 
 
@@ -75,6 +102,9 @@ class FirmUserCreateAPIView(APIView):
         tags=["Firm"]
     )
     def post(self, request, slug):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
         return apis.FirmService.add_user_to_firm(slug, request.data)
 
 
@@ -88,6 +118,9 @@ class VendorOrderListCreateAPIView(APIView):
         tags=["Vendor Orders"]
     )
     def get(self, request, slug):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
         filters = {
             'vendor': request.GET.get('vendor'),
             'order_status': request.GET.get('order_status'),
@@ -95,7 +128,7 @@ class VendorOrderListCreateAPIView(APIView):
         }
         # Remove None values
         filters = {k: v for k, v in filters.items() if v is not None}
-        return apis.VendorOrderService.list_orders(slug, filters)
+        return apis.VendorOrderService.list_orders(slug, filters, params=request.GET)
 
     @extend_schema(
         summary="Create Vendor Order",
@@ -103,6 +136,9 @@ class VendorOrderListCreateAPIView(APIView):
         tags=["Vendor Orders"]
     )
     def post(self, request, slug):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
         return apis.VendorOrderService.create_order(slug, request.data)
 
 
@@ -116,6 +152,9 @@ class VendorOrderDetailAPIView(APIView):
         tags=["Vendor Orders"]
     )
     def get(self, request, slug, order_id):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
         return apis.VendorOrderService.get_order(slug, order_id)
 
     @extend_schema(
@@ -124,6 +163,9 @@ class VendorOrderDetailAPIView(APIView):
         tags=["Vendor Orders"]
     )
     def put(self, request, slug, order_id):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
         return apis.VendorOrderService.update_order(slug, order_id, request.data)
 
     @extend_schema(
@@ -132,6 +174,9 @@ class VendorOrderDetailAPIView(APIView):
         tags=["Vendor Orders"]
     )
     def delete(self, request, slug, order_id):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
         return apis.VendorOrderService.delete_order(slug, order_id)
 
 
@@ -145,6 +190,9 @@ class VendorOrderReceiveAPIView(APIView):
         tags=["Vendor Orders"]
     )
     def post(self, request, slug, order_id):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
         return apis.VendorOrderService.receive_order(slug, order_id, request.data)
 
 class FirmUserListCreateAPIView(APIView):
@@ -157,7 +205,10 @@ class FirmUserListCreateAPIView(APIView):
         tags=["Firm Users"]
     )
     def get(self, request, slug):
-        return apis.FirmUserService.list_firm_users(slug)
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
+        return apis.FirmUserService.list_firm_users(slug, params=request.GET)
 
     @extend_schema(
         summary="Create Firm User",
@@ -165,6 +216,9 @@ class FirmUserListCreateAPIView(APIView):
         tags=["Firm Users"]
     )
     def post(self, request, slug):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
         return apis.FirmUserService.create_firm_user(slug, request.data)
 
 
@@ -178,6 +232,9 @@ class FirmUserDetailAPIView(APIView):
         tags=["Firm Users"]
     )
     def get(self, request, slug, user_id):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
         return apis.FirmUserService.get_firm_user(slug, user_id)
 
     @extend_schema(
@@ -186,6 +243,9 @@ class FirmUserDetailAPIView(APIView):
         tags=["Firm Users"]
     )
     def put(self, request, slug, user_id):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
         return apis.FirmUserService.update_firm_user(slug, user_id, request.data)
 
     @extend_schema(
@@ -194,6 +254,9 @@ class FirmUserDetailAPIView(APIView):
         tags=["Firm Users"]
     )
     def delete(self, request, slug, user_id):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
         return apis.FirmUserService.delete_firm_user(slug, user_id)
 
 
@@ -207,7 +270,10 @@ class VendorListCreateAPIView(APIView):
         tags=["Vendors"]
     )
     def get(self, request, slug):
-        return apis.VendorService.list_vendors(slug)
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
+        return apis.VendorService.list_vendors(slug, params=request.GET)
 
     @extend_schema(
         summary="Create Vendor",
@@ -215,6 +281,9 @@ class VendorListCreateAPIView(APIView):
         tags=["Vendors"]
     )
     def post(self, request, slug):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
         return apis.VendorService.create_vendor(slug, request.data)
 
 
@@ -228,6 +297,9 @@ class VendorDetailAPIView(APIView):
         tags=["Vendors"]
     )
     def get(self, request, slug, vendor_id):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
         return apis.VendorService.get_vendor(slug, vendor_id)
 
     @extend_schema(
@@ -236,6 +308,9 @@ class VendorDetailAPIView(APIView):
         tags=["Vendors"]
     )
     def put(self, request, slug, vendor_id):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
         return apis.VendorService.update_vendor(slug, vendor_id, request.data)
 
     @extend_schema(
@@ -244,6 +319,9 @@ class VendorDetailAPIView(APIView):
         tags=["Vendors"]
     )
     def delete(self, request, slug, vendor_id):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
         return apis.VendorService.delete_vendor(slug, vendor_id)
 
 
@@ -257,7 +335,10 @@ class CustomerListCreateAPIView(APIView):
         tags=["Customers"]
     )
     def get(self, request, slug):
-        return apis.CustomerService.list_customers(slug)
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
+        return apis.CustomerService.list_customers(slug, params=request.GET)
 
     @extend_schema(
         summary="Create Retailer/Customer",
@@ -265,6 +346,9 @@ class CustomerListCreateAPIView(APIView):
         tags=["Customers"]
     )
     def post(self, request, slug):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
         return apis.CustomerService.create_customer(slug, request.data)
 
 
@@ -278,6 +362,9 @@ class CustomerDetailAPIView(APIView):
         tags=["Customers"]
     )
     def get(self, request, slug, customer_id):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
         return apis.CustomerService.get_customer(slug, customer_id)
 
     @extend_schema(
@@ -286,6 +373,9 @@ class CustomerDetailAPIView(APIView):
         tags=["Customers"]
     )
     def put(self, request, slug, customer_id):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
         return apis.CustomerService.update_customer(slug, customer_id, request.data)
 
     @extend_schema(
@@ -294,6 +384,9 @@ class CustomerDetailAPIView(APIView):
         tags=["Customers"]
     )
     def delete(self, request, slug, customer_id):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
         return apis.CustomerService.delete_customer(slug, customer_id)
 
 
@@ -305,6 +398,9 @@ class ProductDetailAPIView(APIView):
         tags=["Products"]
     )
     def get(self, request, slug, product_id):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
         return apis.ProductCrudService.get_product(slug, product_id)
 
     @extend_schema(
@@ -313,6 +409,9 @@ class ProductDetailAPIView(APIView):
         tags=["Products"]
     )
     def put(self, request, slug, product_id):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
         return apis.ProductCrudService.update_product(slug, product_id, request.data)
 
     @extend_schema(
@@ -321,6 +420,9 @@ class ProductDetailAPIView(APIView):
         tags=["Products"]
     )
     def delete(self, request, slug, product_id):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
         return apis.ProductCrudService.delete_product(slug, product_id)
 
 
@@ -334,7 +436,10 @@ class InvoiceListCreateAPIView(APIView):
         tags=["Invoices"]
     )
     def get(self, request, slug):
-        return apis.InvoiceService.list_invoices(slug, request.user)
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
+        return apis.InvoiceService.list_invoices(slug, request.user, params=request.GET)
 
     @extend_schema(
         summary="Create Invoice",
@@ -342,6 +447,9 @@ class InvoiceListCreateAPIView(APIView):
         tags=["Invoices"]
     )
     def post(self, request, slug):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
         return apis.InvoiceService.create_invoice(slug, request.data, request.user)
 
 
@@ -355,6 +463,9 @@ class InvoiceDetailAPIView(APIView):
         tags=["Invoices"]
     )
     def get(self, request, slug, invoice_id):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
         return apis.InvoiceService.get_invoice(slug, invoice_id)
 
     @extend_schema(
@@ -363,6 +474,9 @@ class InvoiceDetailAPIView(APIView):
         tags=["Invoices"]
     )
     def put(self, request, slug, invoice_id):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
         return apis.InvoiceService.update_invoice(slug, invoice_id, request.data)
 
 
@@ -376,6 +490,9 @@ class InvoiceApproveAPIView(APIView):
         tags=["Invoices"]
     )
     def post(self, request, slug, invoice_id):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
         return apis.InvoiceService.approve_invoice(slug, invoice_id, request.user)
 
 
@@ -389,6 +506,9 @@ class InvoiceRequestChangesAPIView(APIView):
         tags=["Invoices"]
     )
     def post(self, request, slug, invoice_id):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
         return apis.InvoiceService.request_changes(slug, invoice_id, request.data)
 
 
@@ -402,4 +522,7 @@ class InvoicePricingPreviewAPIView(APIView):
         tags=["Invoices"]
     )
     def post(self, request, slug):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
         return apis.InvoiceService.preview_pricing(slug, request.data)

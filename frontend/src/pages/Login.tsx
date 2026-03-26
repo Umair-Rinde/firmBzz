@@ -35,6 +35,9 @@ export default function Login() {
   const location = useLocation();
   const { login, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
+  const [pendingCreds, setPendingCreds] = useState<{ email: string; password: string } | null>(null);
+  const [selectedFirmId, setSelectedFirmId] = useState<string>("");
+  const [availableFirms, setAvailableFirms] = useState<Array<{ id: string; name: string; slug: string; role: string }>>([]);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -87,8 +90,20 @@ export default function Login() {
       const token = resp?.data?.token;
       const userData = resp?.data?.data;
 
-      if (!data || !token || !userData) {
+      if (!data || !userData) {
         toast.error("Invalid response from server");
+        return;
+      }
+
+      if (userData?.requires_firm_selection) {
+        setAvailableFirms(userData?.firms || []);
+        setPendingCreds({ email: userData?.email || pendingCreds?.email || "", password: pendingCreds?.password || "" });
+        toast.info("Select a firm to continue");
+        return;
+      }
+
+      if (!token) {
+        toast.error("Login token missing");
         return;
       }
 
@@ -135,58 +150,86 @@ export default function Login() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Formik
-            initialValues={{ email: "", password: "" }}
-            validationSchema={LoginSchema}
-            onSubmit={(values) => {
-              mutate(values);
-            }}
-          >
-            {({ isSubmitting }) => (
-              <Form className="space-y-4">
-                <FormikInput
-                  name="email"
-                  label="Email"
-                  placeholder="name@example.com"
-                  type="email"
-                />
-                <FormikInput
-                  name="password"
-                  label="Password"
-                  placeholder="Enter your password"
-                  type="password"
-                />
+          {!pendingCreds ? (
+            <Formik
+              initialValues={{ email: "", password: "" }}
+              validationSchema={LoginSchema}
+              onSubmit={(values) => {
+                setPendingCreds(values);
+                mutate(values);
+              }}
+            >
+              {({ isSubmitting }) => (
+                <Form className="space-y-4">
+                  <FormikInput
+                    name="email"
+                    label="Email"
+                    placeholder="name@example.com"
+                    type="email"
+                  />
+                  <FormikInput
+                    name="password"
+                    label="Password"
+                    placeholder="Enter your password"
+                    type="password"
+                  />
 
-                {/* <div className="space-y-2">
-                  <Label htmlFor="role">Select Role (Simulated)</Label>
-                  <Select
-                    value={role}
-                    onValueChange={(val) => setRole(val as UserRole)}
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={isPending || isSubmitting}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="owner">Owner</SelectItem>
-                      <SelectItem value="firm_admin">Firm Admin</SelectItem>
-                      <SelectItem value="super_retailer">
-                        Super Retailer
+                    {isPending ? "Signing In..." : "Sign In"}
+                  </Button>
+                </Form>
+              )}
+            </Formik>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Select Firm</Label>
+                <Select value={selectedFirmId} onValueChange={(val) => setSelectedFirmId(val)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a firm" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableFirms.map((f) => (
+                      <SelectItem key={f.id} value={f.id}>
+                        {f.name}
                       </SelectItem>
-                      <SelectItem value="distributor">Distributor</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div> */}
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
+              <div className="flex gap-2">
                 <Button
-                  type="submit"
+                  type="button"
                   className="w-full"
-                  disabled={isPending || isSubmitting}
+                  variant="outline"
+                  disabled={isPending}
+                  onClick={() => {
+                    setPendingCreds(null);
+                    setSelectedFirmId("");
+                    setAvailableFirms([]);
+                  }}
                 >
-                  {isPending ? "Signing In..." : "Sign In"}
+                  Back
                 </Button>
-              </Form>
-            )}
-          </Formik>
+                <Button
+                  type="button"
+                  className="w-full"
+                  disabled={isPending || !selectedFirmId}
+                  onClick={() => {
+                    if (!pendingCreds) return;
+                    mutate({ ...pendingCreds, firm_id: selectedFirmId });
+                  }}
+                >
+                  {isPending ? "Logging in..." : "Continue"}
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
         <CardFooter className="flex flex-col space-y-2 text-center text-sm text-muted-foreground">
           <p>

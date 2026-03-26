@@ -69,11 +69,39 @@ class BaseAPIView(APIView):
         except:
             return "-created_on"
 
+    def _is_admin_request(self):
+        try:
+            return getattr(self.request, "user", None) and getattr(self.request.user, "user_type", None) == "ADMIN"
+        except:
+            return False
+
+    def _model_has_firm_field(self):
+        try:
+            self.model._meta.get_field("firm")
+            return True
+        except:
+            return False
+
+    def _get_request_firm_id(self):
+        firm_id = getattr(self.request, "firm_id", None)
+        return str(firm_id) if firm_id else None
+
     def get_queryset(self):
         try:
-            return self.query_set.order_by(self.get_order())
+            queryset = self.query_set.order_by(self.get_order())
         except:
-            return self.model.objects.all().order_by(self.get_order())
+            queryset = self.model.objects.all().order_by(self.get_order())
+
+        # Enforce firm scoping for any model that has a `firm` FK.
+        # Skips for ADMIN and for endpoints where firm is not present in token.
+        try:
+            firm_id = self._get_request_firm_id()
+            if firm_id and not self._is_admin_request() and self._model_has_firm_field():
+                queryset = queryset.filter(firm_id=firm_id)
+        except:
+            pass
+
+        return queryset
 
     def get_post_serializer(self):
         try:
@@ -162,7 +190,7 @@ class BaseAPIView(APIView):
             try:
                 self.serializer = self.get_single_obj_serializer()
                 return Response(
-                    data=self.serializer(self.model.objects.get(id=id)).data,
+                    data=self.serializer(self.get_queryset().get(id=id)).data,
                     status=200,
                 )
             except (self.model.DoesNotExist, ValidationError):
@@ -180,7 +208,22 @@ class BaseAPIView(APIView):
         # print("in post")
 
         serializer = self.get_post_serializer()
-        serializer = serializer(data=request.data)
+        data = request.data
+        try:
+            if hasattr(data, "copy"):
+                data = data.copy()
+        except:
+            pass
+
+        # Force firm from token when model has `firm` FK (non-admin).
+        try:
+            firm_id = getattr(request, "firm_id", None)
+            if firm_id and not self._is_admin_request() and self._model_has_firm_field():
+                data["firm"] = str(firm_id)
+        except:
+            pass
+
+        serializer = serializer(data=data)
         if serializer.is_valid():
             obj = serializer.save()
             return Response(
@@ -196,7 +239,7 @@ class BaseAPIView(APIView):
         # print("in put")
         filter = {self.lookup: id}
         try:
-            obj = self.model.objects.get(**filter)
+            obj = self.get_queryset().get(**filter)
         except (self.model.DoesNotExist, ValidationError):
             return Response(
                 data={
@@ -206,7 +249,22 @@ class BaseAPIView(APIView):
                 status=400,
             )
         serializer = self.get_put_serializer()
-        serializer = serializer(obj, data=request.data, partial=True)
+        data = request.data
+        try:
+            if hasattr(data, "copy"):
+                data = data.copy()
+        except:
+            pass
+
+        # Prevent cross-firm moves; always keep firm as token firm for scoped models.
+        try:
+            firm_id = getattr(request, "firm_id", None)
+            if firm_id and not self._is_admin_request() and self._model_has_firm_field():
+                data["firm"] = str(firm_id)
+        except:
+            pass
+
+        serializer = serializer(obj, data=data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(data={"msg": "Saved Successfully"}, status=202)
@@ -218,7 +276,7 @@ class BaseAPIView(APIView):
         # print("in delete")
         filter = {self.lookup: id}
         try:
-            obj = self.model.objects.get(**filter)
+            obj = self.get_queryset().get(**filter)
             if self.archive_in_delete:
                 obj.is_deleted = True
                 obj.save()

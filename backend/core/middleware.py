@@ -20,9 +20,14 @@ class AuthMiddleware:
             return self.get_response(request)
 
         try:
-            prefix, token = auth_header.split(' ')
-            if prefix.lower() != 'bearer':
-                 raise ValueError("Invalid token prefix")
+            parts = auth_header.split(" ")
+            if len(parts) == 1:
+                # Backwards compatibility: clients sending raw token
+                token = parts[0]
+            else:
+                prefix, token = parts[0], parts[1]
+                if prefix.lower() != 'bearer':
+                    raise ValueError("Invalid token prefix")
             
             payload = jwt.decode(
                 token, 
@@ -32,6 +37,7 @@ class AuthMiddleware:
             
             user = User.objects.get(id=payload['user_id'])
             request.user = user
+            request.firm_id = payload.get("firm_id")
             
         except (ValueError, jwt.ExpiredSignatureError, jwt.InvalidTokenError, User.DoesNotExist):
             # If token is invalid, we don't necessarily want to block 

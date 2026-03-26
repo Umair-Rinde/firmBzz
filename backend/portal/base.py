@@ -28,6 +28,9 @@ class BaseResponse(Response):
             "data": data,
             "errors": errors,
         }
+        # Allow callers to attach extra top-level fields (e.g. token, meta)
+        if kwargs:
+            response_data.update(kwargs)
         super().__init__(data=response_data, status=status, **kwargs)
 
 

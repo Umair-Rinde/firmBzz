@@ -2,17 +2,21 @@ import React, { createContext, useContext, useState, ReactNode, useEffect } from
 
 export type UserRole = "admin" | "firm_admin" | "super_retailer" | "distributor";
 
+interface BackendFirm {
+  id: string;
+  name: string;
+  slug: string;
+  role: string;
+}
+
 interface BackendUser {
   id: string;
   username: string;
   email: string;
   user_type: string;
-  firm?: {
-    id: string;
-    name: string;
-    slug: string;
-    role: string;
-  };
+  firm?: BackendFirm | null;
+  firms?: BackendFirm[];
+  requires_firm_selection?: boolean;
 }
 
 interface User {
@@ -23,6 +27,7 @@ interface User {
   username: string;
   firm_id?: string;
   firm_slug?: string;
+  firms?: BackendFirm[];
 }
 
 interface AuthContextType {
@@ -75,6 +80,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           role: mapBackendRoleToFrontend(backendUser.user_type, backendUser.firm?.role),
           firm_id: backendUser.firm?.id,
           firm_slug: backendUser.firm?.slug,
+          firms: backendUser.firms || [],
         };
         setUser(mappedUser);
       } catch (error) {
@@ -99,6 +105,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       role: mapBackendRoleToFrontend(userData.user_type, userData.firm?.role),
       firm_id: userData.firm?.id,
       firm_slug: userData.firm?.slug,
+      firms: userData.firms || [],
     };
 
     setUser(mappedUser);

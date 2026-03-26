@@ -6,6 +6,7 @@ import jwt
 import datetime
 from . import serializers
 from . import choices
+from .models import FirmUsers
 
 class AuthService:
 
@@ -13,6 +14,7 @@ class AuthService:
     def login(data):
         email = data.get("email")
         password = data.get("password")
+        firm_id = data.get("firm_id") or data.get("firm") or None
 
         if not email or not password:
             return BaseResponse(
@@ -38,31 +40,92 @@ class AuthService:
                 status=403
             )
 
-        # Generate Access Token
+        memberships = (
+            FirmUsers.objects.filter(user=user)
+            .select_related("firm")
+            .order_by("firm__name")
+        )
+
+        firms = [
+            {
+                "id": str(m.firm.id),
+                "name": m.firm.name,
+                "slug": m.firm.slug,
+                "role": m.role,
+            }
+            for m in memberships
+        ]
+
+        # If user belongs to multiple firms, require firm selection before issuing token
+        if user.user_type == choices.UserTypeChoices.FIRM_USER:
+            if not firms:
+                return BaseResponse(
+                    success=False,
+                    message="No firm assigned to this user. Contact admin.",
+                    status=403,
+                )
+
+            if not firm_id and len(firms) > 1:
+                return BaseResponse(
+                    message="Select firm to continue",
+                    data={
+                        "id": str(user.id),
+                        "username": user.username,
+                        "email": user.email,
+                        "user_type": user.user_type,
+                        "firms": firms,
+                        "requires_firm_selection": True,
+                    },
+                    status=200,
+                    success=True,
+                )
+
+        selected_firm = None
+        selected_role = None
+        if user.user_type == choices.UserTypeChoices.FIRM_USER:
+            # Auto-select if only 1 firm, otherwise validate firm_id
+            if not firm_id and len(firms) == 1:
+                selected_firm = firms[0]
+                selected_role = firms[0]["role"]
+                firm_id = selected_firm["id"]
+            else:
+                selected_firm = next((f for f in firms if f["id"] == str(firm_id)), None)
+                if not selected_firm:
+                    return BaseResponse(
+                        success=False,
+                        message="Invalid firm selection",
+                        status=400,
+                    )
+                selected_role = selected_firm["role"]
+
+        # Generate Access Token (includes firm context when applicable)
         access_token_payload = {
-            "user_id": user.id,
+            "user_id": str(user.id),
+            "firm_id": str(firm_id) if firm_id else None,
             "exp": datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(days=1),
             "iat": datetime.datetime.now(tz=datetime.timezone.utc),
         }
         access_token = jwt.encode(
-            access_token_payload, 
-            settings.JWT_SECRET_KEY, 
-            algorithm=settings.JWT_ALGORITHM
+            access_token_payload,
+            settings.DJANGO_JWT_SECRECT_KEY,
+            algorithm=settings.JWT_ALGORITHM,
         )
 
         return BaseResponse(
             message="Login successful",
             data={
-                "access_token": access_token,
-                "user": {
-                    "id": user.id,
-                    "username": user.username,
-                    "email": user.email,
-                    "user_type": user.user_type,
-                    "role": user.role,
-                    "firm_id": user.firm_id,
-                }
+                "id": str(user.id),
+                "username": user.username,
+                "email": user.email,
+                "user_type": user.user_type,
+                "firms": firms,
+                "firm": selected_firm,
+                "firm_id": selected_firm["id"] if selected_firm else None,
+                "firm_slug": selected_firm["slug"] if selected_firm else None,
+                "role": selected_role,
+                "requires_firm_selection": False,
             },
+            token=access_token,
             status=200
         )
 

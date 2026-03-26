@@ -12,7 +12,9 @@ axios.interceptors.request.use(function (req) {
   if (queryToken) {
     token = queryToken;
   }
-  req.headers["Authorization"] = `${token}`;
+  if (token) {
+    req.headers["Authorization"] = `Bearer ${token}`;
+  }
 
   return req;
 });

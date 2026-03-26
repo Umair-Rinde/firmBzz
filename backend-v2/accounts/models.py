@@ -52,8 +52,9 @@ class User(AbstractBaseUser):
 
 
 class FirmUsers(BaseModel):
-    user = models.OneToOneField(
-        User, on_delete=models.CASCADE, related_name="firm_user"
+    # A user can belong to multiple firms
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="firm_memberships"
     )
     firm = models.ForeignKey(
         Firm, on_delete=models.CASCADE, related_name="firm_users"
@@ -70,6 +71,9 @@ class FirmUsers(BaseModel):
     license_expiry = models.DateTimeField(blank=True, null=True)
     home_address = models.TextField(blank=True, null=True)
     profile_photo = models.ImageField(upload_to='staff/', blank=True, null=True)
+
+    class Meta:
+        unique_together = ("user", "firm")
 
     def __str__(self):
         return f"{self.user.full_name} - {self.firm.name}"

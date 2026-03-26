@@ -20,13 +20,41 @@ class UserLoginAPI(APIView):
             return BaseResponse(message="User not found", status=404, success=False)
         if not user.check_password(request.data["password"]):
             return BaseResponse(message="Invalid password", status=400, success=False)
-       
+
+        firm_id = request.data.get("firm_id") or request.data.get("firm") or None
+
+        # Firm selection flow (user may belong to multiple firms)
+        firms = (user_data or {}).get("firms") or []
+        if firms and len(firms) > 1 and not firm_id:
+            user_data["requires_firm_selection"] = True
+            user_data["firm"] = None
+            return BaseResponse(
+                message="Select firm to continue",
+                data=user_data,
+                token=None,
+                status=200,
+                success=True,
+            )
+
+        selected_firm = None
+        if firms:
+            if not firm_id and len(firms) == 1:
+                selected_firm = firms[0]
+                firm_id = str(selected_firm["id"])
+            else:
+                selected_firm = next((f for f in firms if str(f["id"]) == str(firm_id)), None)
+                if not selected_firm:
+                    return BaseResponse(message="Invalid firm selection", status=400, success=False)
+
+        user_data["firm"] = selected_firm
+        user_data["requires_firm_selection"] = False
+
         payload = {
             "user_id": str(user.id),
+            "firm_id": str(firm_id) if firm_id else None,
         }
-        token = jwt.encode(
-            payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM
-        )
+        token = jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
         return BaseResponse(
             message="Login Successful",
             data=user_data,
