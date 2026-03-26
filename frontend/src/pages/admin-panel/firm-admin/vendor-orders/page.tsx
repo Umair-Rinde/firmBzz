@@ -2,15 +2,17 @@ import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Datagrid } from "@/components/ui/custom/datgrid";
 import CustomButton from "@/components/ui/custom/custom-button";
-import { Plus, PackageCheck } from "lucide-react";
+import { Plus, PackageCheck, Upload } from "lucide-react";
 import AppBar from "@/components/ui/custom/app-bar";
 import { Badge } from "@/components/ui/badge";
 import ReceiveOrderDrawer from "./components/receive-order-drawer";
+import BulkImportOrderDrawer from "./components/bulk-import-order-drawer";
 
 export default function VendorOrderListPage() {
     const { firmId } = useParams();
     const navigate = useNavigate();
     const [openReceiveDrawer, setOpenReceiveDrawer] = useState(false);
+    const [bulkImportOpen, setBulkImportOpen] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState<any>(null);
 
     const columns = [
@@ -105,10 +107,20 @@ export default function VendorOrderListPage() {
                 title="Vendor Orders"
                 url={`/firm/${firmId}/vendor-orders/`}
                 extraButtons={
-                    <CustomButton onClick={handleAdd} className="flex gap-2">
-                        <Plus className="h-4 w-4" />
-                        Create Order
-                    </CustomButton>
+                    <div className="flex gap-4">
+                        <CustomButton
+                            variant="outline"
+                            onClick={() => setBulkImportOpen(true)}
+                            className="flex gap-2 border-primary text-primary hover:bg-primary/5"
+                        >
+                            <Upload className="h-4 w-4" />
+                            Bulk Import
+                        </CustomButton>
+                        <CustomButton onClick={handleAdd} className="flex gap-2">
+                            <Plus className="h-4 w-4" />
+                            Create Order
+                        </CustomButton>
+                    </div>
                 }
             />
 
@@ -117,6 +129,13 @@ export default function VendorOrderListPage() {
                     open={openReceiveDrawer}
                     onOpenChange={setOpenReceiveDrawer}
                     order={selectedOrder}
+                />
+            )}
+
+            {bulkImportOpen && (
+                <BulkImportOrderDrawer
+                    handleClose={() => setBulkImportOpen(false)}
+                    open={bulkImportOpen}
                 />
             )}
         </div>

@@ -50,6 +50,7 @@ class Customer(BaseModel):
     business_name = models.CharField(max_length=255)
     owner_name = models.CharField(max_length=255)
     fssai_number = models.CharField(max_length=50, blank=True, null=True)
+    fssai_document = models.FileField(upload_to='customers/fssai/', blank=True, null=True)
     gst_number = models.CharField(max_length=50, blank=True, null=True)
     fssai_expiry = models.DateTimeField(blank=True, null=True)
     gst_expiry = models.DateTimeField(blank=True, null=True)

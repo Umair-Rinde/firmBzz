@@ -6,6 +6,7 @@ urlpatterns = [
     path('all/', routes.FirmListAPIView.as_view()),
     path('<slug:slug>/', routes.FirmDetailAPIView.as_view()),
     path('<slug:slug>/products/', routes.ProductListCreateAPIView.as_view()),
+    path('<slug:slug>/products/bulk-import/', routes.ProductBulkImportAPIView.as_view()),
     path('<slug:slug>/users/', routes.FirmUserCreateAPIView.as_view()),
     path('<slug:slug>/products/<uuid:product_id>/', routes.ProductDetailAPIView.as_view()),
     # Firm User Management
@@ -22,6 +23,7 @@ urlpatterns = [
 
     # Vendor Order URLs
     path('<slug:slug>/vendor-orders/', routes.VendorOrderListCreateAPIView.as_view()),
+    path('<slug:slug>/vendor-orders/bulk-import/', routes.VendorOrderBulkImportAPIView.as_view()),
     path('<slug:slug>/vendor-orders/<uuid:order_id>/', routes.VendorOrderDetailAPIView.as_view()),
     path('<slug:slug>/vendor-orders/<uuid:order_id>/receive/', routes.VendorOrderReceiveAPIView.as_view()),
 
@@ -31,4 +33,8 @@ urlpatterns = [
     path('<slug:slug>/invoices/<uuid:invoice_id>/', routes.InvoiceDetailAPIView.as_view()),
     path('<slug:slug>/invoices/<uuid:invoice_id>/approve/', routes.InvoiceApproveAPIView.as_view()),
     path('<slug:slug>/invoices/<uuid:invoice_id>/request-changes/', routes.InvoiceRequestChangesAPIView.as_view()),
+
+    # Dashboard URLs
+    path('dashboard/admin/', routes.AdminDashboardAPIView.as_view()),
+    path('<slug:slug>/dashboard/', routes.FirmDashboardAPIView.as_view()),
 ]

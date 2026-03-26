@@ -49,7 +49,7 @@ class CustomerSerializer(serializers.ModelSerializer):
         model = Customer
         fields = [
             "id", "firm", "slug", "customer_type", "customer_type_display",
-            "business_name", "owner_name", "fssai_number", "gst_number",
+            "business_name", "owner_name", "fssai_number", "fssai_document", "gst_number",
             "fssai_expiry", "gst_expiry", "whatsapp_number", "contact_number",
             "business_address", "email", "is_active", "created_on"
         ]
@@ -154,8 +154,8 @@ class FirmUserSerializer(serializers.ModelSerializer):
             'id', 'user', 'user_email', 'user_full_name', 'user_phone',
             'user_username', 'user_gender', 'is_active', 'firm', 'firm_name',
             'role', 'role_display', 'aadhaar_number', 'pan_number',
-            'driving_license', 'license_expiry', 'home_address',
-            'profile_photo', 'created_on'
+            'driving_license', 'license_document', 'license_expiry', 'home_address',
+            'address_proof_document', 'profile_photo', 'created_on'
         ]
         read_only_fields = ['created_on', 'firm']
 
@@ -173,8 +173,10 @@ class FirmUserCreateSerializer(serializers.Serializer):
     aadhaar_number = serializers.CharField(max_length=12, required=False, allow_blank=True)
     pan_number = serializers.CharField(max_length=10, required=False, allow_blank=True)
     driving_license = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    license_document = serializers.FileField(required=False, allow_null=True)
     license_expiry = serializers.DateTimeField(required=False, allow_null=True)
     home_address = serializers.CharField(required=False, allow_blank=True)
+    address_proof_document = serializers.FileField(required=False, allow_null=True)
 
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():
@@ -205,8 +207,10 @@ class FirmUserCreateSerializer(serializers.Serializer):
                 aadhaar_number=validated_data.get('aadhaar_number', ''),
                 pan_number=validated_data.get('pan_number', ''),
                 driving_license=validated_data.get('driving_license', ''),
+                license_document=validated_data.get('license_document'),
                 license_expiry=validated_data.get('license_expiry'),
-                home_address=validated_data.get('home_address', '')
+                home_address=validated_data.get('home_address', ''),
+                address_proof_document=validated_data.get('address_proof_document')
             )
 
             return firm_user
@@ -223,8 +227,8 @@ class FirmUserUpdateSerializer(serializers.ModelSerializer):
         model = FirmUsers
         fields = [
             'role', 'aadhaar_number', 'pan_number', 'driving_license',
-            'license_expiry', 'home_address', 'full_name', 'phone',
-            'gender', 'password', 'is_active'
+            'license_document', 'license_expiry', 'home_address', 'address_proof_document',
+            'full_name', 'phone', 'gender', 'password', 'is_active'
         ]
 
     def update(self, instance, validated_data):

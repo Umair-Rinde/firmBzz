@@ -2,9 +2,10 @@ import { Datagrid } from "@/components/ui/custom/datgrid";
 import { ColumnDef } from "@tanstack/react-table";
 import AppBar from "@/components/ui/custom/app-bar";
 import CustomButton from "@/components/ui/custom/custom-button";
-import { FaPlus } from "react-icons/fa";
+import { FaPlus, FaUpload } from "react-icons/fa";
 import { useState } from "react";
 import VendorProductDrawer from "./components/vendor-product";
+import BulkImportDrawer from "./components/bulk-import-drawer";
 import { useCookies } from "react-cookie";
 import { LuPen } from "react-icons/lu";
 import { DeleteItem } from "@/components/ui/custom/delete-dialog";
@@ -57,6 +58,7 @@ export default function FirmProductPage() {
   ];
 
   const [open, setOpen] = useState(false);
+  const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [selectedRow, setSelectedRow] = useState<any>(null);
 
   const [cookies] = useCookies(["current_role", "firm"]);
@@ -72,9 +74,18 @@ export default function FirmProductPage() {
         title="Products"
         url={`firm/${cookies.firm}/products/`}
         extraButtons={
-          <CustomButton onClick={() => setOpen(true)}>
-            Add Product <FaPlus />
-          </CustomButton>
+          <div className="flex gap-4">
+            <CustomButton
+              variant="outline"
+              onClick={() => setBulkImportOpen(true)}
+              className="border-primary text-primary hover:bg-primary/5"
+            >
+              Bulk Import <FaUpload className="ml-2" />
+            </CustomButton>
+            <CustomButton onClick={() => setOpen(true)}>
+              Add Product <FaPlus />
+            </CustomButton>
+          </div>
         }
       />
       {open && (
@@ -82,6 +93,12 @@ export default function FirmProductPage() {
           handleClose={handleClose}
           open={open}
           id={selectedRow}
+        />
+      )}
+      {bulkImportOpen && (
+        <BulkImportDrawer
+          handleClose={() => setBulkImportOpen(false)}
+          open={bulkImportOpen}
         />
       )}
     </div>

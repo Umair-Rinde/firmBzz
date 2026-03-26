@@ -137,6 +137,118 @@ class ProductService:
             status=200
         )
 
+    @staticmethod
+    def bulk_import_products(firm_slug, files):
+        try:
+            firm = Firm.objects.get(slug=firm_slug)
+        except Firm.DoesNotExist:
+             return BaseResponse(
+                success=False,
+                message="Firm not found",
+                status=404
+            )
+        
+        file_obj = files.get('file')
+        if not file_obj:
+            return BaseResponse(
+                success=False,
+                message="No file uploaded",
+                status=400
+            )
+
+        filename = file_obj.name.lower()
+        if not (filename.endswith('.csv') or filename.endswith('.xlsx') or filename.endswith('.xls')):
+            return BaseResponse(
+                success=False,
+                message="Only CSV and Excel files are supported",
+                status=400
+            )
+
+        products_data = []
+        try:
+            if filename.endswith('.csv'):
+                import csv
+                import io
+                decoded_file = file_obj.read().decode('utf-8')
+                io_string = io.StringIO(decoded_file)
+                reader = csv.DictReader(io_string)
+                
+                # Normalize headers: lower, strip whitespace
+                if reader.fieldnames:
+                    reader.fieldnames = [str(col).strip().lower() for col in reader.fieldnames]
+
+                for row in reader:
+                    products_data.append(row)
+            else:
+                import openpyxl
+                wb = openpyxl.load_workbook(file_obj, data_only=True)
+                sheet = wb.active
+                
+                rows = list(sheet.iter_rows(values_only=True))
+                if len(rows) > 0:
+                    headers = [str(h).strip().lower() if h else '' for h in rows[0]]
+                    for row in rows[1:]:
+                        if not any(row): continue # skip empty rows
+                        row_dict = dict(zip(headers, row))
+                        products_data.append(row_dict)
+
+        except Exception as e:
+            return BaseResponse(
+                success=False,
+                message=f"Error parsing file: {str(e)}",
+                status=400
+            )
+
+        if not products_data:
+            return BaseResponse(
+                success=False,
+                message="File contains no valid product data",
+                status=400
+            )
+
+        success_count = 0
+        errors = []
+
+        with transaction.atomic():
+            for i, row in enumerate(products_data):
+                # Map potential column names
+                name = str(row.get('name', row.get('product name', ''))).strip() if row.get('name', row.get('product name', '')) else ''
+                description = str(row.get('description', '')).strip() if row.get('description', '') else ''
+                category = str(row.get('category', '')).strip() if row.get('category', '') else ''
+                hsn_code = str(row.get('hsn_code', row.get('hsn code', row.get('hsn', '')))).strip() if row.get('hsn_code', row.get('hsn code', row.get('hsn', ''))) else ''
+
+                if not name:
+                    errors.append(f"Row {i+2}: 'name' is required")
+                    continue
+
+                # Ensure product doesn't already exist for this firm by name
+                if Product.objects.filter(firm=firm, name__iexact=name).exists():
+                    errors.append(f"Row {i+2}: Product with name '{name}' already exists")
+                    continue
+                
+                Product.objects.create(
+                    firm=firm,
+                    name=name,
+                    description=description,
+                    category=category,
+                    hsn_code=hsn_code
+                )
+                success_count += 1
+
+        if errors and success_count == 0:
+             return BaseResponse(
+                success=False,
+                message="Failed to import any products",
+                errors=errors,
+                status=400
+            )
+
+        return BaseResponse(
+            message=f"Successfully imported {success_count} products",
+            data={"success_count": success_count, "errors": errors},
+            status=201 if success_count > 0 else 400
+        )
+
 
 class VendorOrderService:
     @staticmethod
@@ -352,6 +464,208 @@ class VendorOrderService:
                 },
                 status=200
             )
+
+    @staticmethod
+    def bulk_import_orders(firm_slug, files):
+        """Bulk import vendor orders from CSV/XLSX file"""
+        try:
+            firm = Firm.objects.get(slug=firm_slug)
+        except Firm.DoesNotExist:
+            return BaseResponse(success=False, message="Firm not found", status=404)
+
+        file_obj = files.get('file')
+        if not file_obj:
+            return BaseResponse(success=False, message="No file uploaded", status=400)
+
+        filename = file_obj.name.lower()
+        if not (filename.endswith('.csv') or filename.endswith('.xlsx') or filename.endswith('.xls')):
+            return BaseResponse(success=False, message="Only CSV and Excel files are supported", status=400)
+
+        # Parse file into flat rows
+        rows_data = []
+        try:
+            if filename.endswith('.csv'):
+                import csv, io
+                decoded_file = file_obj.read().decode('utf-8')
+                reader = csv.DictReader(io.StringIO(decoded_file))
+                if reader.fieldnames:
+                    reader.fieldnames = [str(col).strip().lower() for col in reader.fieldnames]
+                for row in reader:
+                    rows_data.append(row)
+            else:
+                import openpyxl
+                wb = openpyxl.load_workbook(file_obj, data_only=True)
+                sheet = wb.active
+                all_rows = list(sheet.iter_rows(values_only=True))
+                if len(all_rows) > 0:
+                    headers = [str(h).strip().lower() if h else '' for h in all_rows[0]]
+                    for row in all_rows[1:]:
+                        if not any(row):
+                            continue
+                        rows_data.append(dict(zip(headers, row)))
+        except Exception as e:
+            return BaseResponse(success=False, message=f"Error parsing file: {str(e)}", status=400)
+
+        if not rows_data:
+            return BaseResponse(success=False, message="File contains no valid data", status=400)
+
+        # Group rows by order_number
+        from collections import defaultdict
+        order_groups = defaultdict(list)
+        errors = []
+
+        for i, row in enumerate(rows_data):
+            row_num = i + 2  # Excel row number (1-indexed header + 1)
+            order_number = str(row.get('order_number', '')).strip() if row.get('order_number') else ''
+            if not order_number:
+                errors.append(f"Row {row_num}: 'order_number' is required")
+                continue
+            order_groups[order_number].append((row_num, row))
+
+        orders_created = 0
+
+        with transaction.atomic():
+            for order_number, group_rows in order_groups.items():
+                first_row_num, first_row = group_rows[0]
+
+                # --- Resolve Vendor ---
+                vendor_name = str(first_row.get('vendor_name', first_row.get('vendor', ''))).strip() if first_row.get('vendor_name', first_row.get('vendor')) else ''
+                if not vendor_name:
+                    errors.append(f"Row {first_row_num} (Order {order_number}): 'vendor_name' is required")
+                    continue
+
+                vendor = Vendor.objects.filter(firm=firm, vendor_name__iexact=vendor_name).first()
+                if not vendor:
+                    errors.append(f"Row {first_row_num} (Order {order_number}): Vendor '{vendor_name}' not found")
+                    continue
+
+                # --- Parse order-level fields ---
+                order_date_raw = first_row.get('order_date', '')
+                if not order_date_raw:
+                    errors.append(f"Row {first_row_num} (Order {order_number}): 'order_date' is required")
+                    continue
+
+                from django.utils.dateparse import parse_datetime, parse_date
+                import datetime
+                order_date = None
+                if isinstance(order_date_raw, datetime.datetime):
+                    order_date = order_date_raw
+                elif isinstance(order_date_raw, datetime.date):
+                    order_date = datetime.datetime.combine(order_date_raw, datetime.time.min)
+                else:
+                    order_date_raw_str = str(order_date_raw).strip()
+                    order_date = parse_datetime(order_date_raw_str)
+                    if not order_date:
+                        parsed_d = parse_date(order_date_raw_str)
+                        if parsed_d:
+                            order_date = datetime.datetime.combine(parsed_d, datetime.time.min)
+
+                if not order_date:
+                    errors.append(f"Row {first_row_num} (Order {order_number}): Invalid 'order_date' format")
+                    continue
+
+                # Check if order_number already exists
+                if VendorOrder.objects.filter(order_number=order_number).exists():
+                    errors.append(f"Row {first_row_num}: Order '{order_number}' already exists")
+                    continue
+
+                vendor_invoice_number = str(first_row.get('vendor_invoice_number', '')).strip() if first_row.get('vendor_invoice_number') else ''
+                notes = str(first_row.get('notes', '')).strip() if first_row.get('notes') else ''
+
+                # --- Create VendorOrder ---
+                order = VendorOrder.objects.create(
+                    firm=firm,
+                    vendor=vendor,
+                    order_number=order_number,
+                    order_date=order_date,
+                    vendor_invoice_number=vendor_invoice_number,
+                    notes=notes,
+                    total_amount=0
+                )
+
+                # --- Create VendorOrderItems ---
+                total_amount = 0
+                items_created = 0
+
+                for row_num, row in group_rows:
+                    product_name = str(row.get('product_name', row.get('product', ''))).strip() if row.get('product_name', row.get('product')) else ''
+                    if not product_name:
+                        errors.append(f"Row {row_num} (Order {order_number}): 'product_name' is required")
+                        continue
+
+                    product = Product.objects.filter(firm=firm, name__iexact=product_name).first()
+                    if not product:
+                        errors.append(f"Row {row_num} (Order {order_number}): Product '{product_name}' not found")
+                        continue
+
+                    try:
+                        qty = int(float(str(row.get('quantity_ordered', 0))))
+                        cost_price = float(str(row.get('cost_price_per_unit', 0)))
+                        ss_price = float(str(row.get('selling_price_super_seller', 0)))
+                        dist_price = float(str(row.get('selling_price_distributor', 0)))
+                    except (ValueError, TypeError) as e:
+                        errors.append(f"Row {row_num} (Order {order_number}): Invalid numeric value - {str(e)}")
+                        continue
+
+                    batch_number = str(row.get('batch_number', '')).strip() if row.get('batch_number') else ''
+                    if not batch_number:
+                        errors.append(f"Row {row_num} (Order {order_number}): 'batch_number' is required")
+                        continue
+
+                    # Parse optional dates
+                    mfg_date = None
+                    exp_date = None
+                    mfg_raw = row.get('manufacturing_date')
+                    exp_raw = row.get('expiry_date')
+
+                    if mfg_raw:
+                        if isinstance(mfg_raw, (datetime.datetime, datetime.date)):
+                            mfg_date = mfg_raw if isinstance(mfg_raw, datetime.datetime) else datetime.datetime.combine(mfg_raw, datetime.time.min)
+                        else:
+                            mfg_date = parse_datetime(str(mfg_raw).strip()) or (parse_date(str(mfg_raw).strip()) and datetime.datetime.combine(parse_date(str(mfg_raw).strip()), datetime.time.min))
+
+                    if exp_raw:
+                        if isinstance(exp_raw, (datetime.datetime, datetime.date)):
+                            exp_date = exp_raw if isinstance(exp_raw, datetime.datetime) else datetime.datetime.combine(exp_raw, datetime.time.min)
+                        else:
+                            exp_date = parse_datetime(str(exp_raw).strip()) or (parse_date(str(exp_raw).strip()) and datetime.datetime.combine(parse_date(str(exp_raw).strip()), datetime.time.min))
+
+                    VendorOrderItem.objects.create(
+                        order=order,
+                        product=product,
+                        quantity_ordered=qty,
+                        cost_price_per_unit=cost_price,
+                        selling_price_super_seller=ss_price,
+                        selling_price_distributor=dist_price,
+                        batch_number=batch_number,
+                        manufacturing_date=mfg_date,
+                        expiry_date=exp_date
+                    )
+                    total_amount += qty * cost_price
+                    items_created += 1
+
+                if items_created == 0:
+                    # No items created for this order, delete the empty order
+                    order.delete()
+                    errors.append(f"Order '{order_number}': No valid items, order was not created")
+                else:
+                    order.total_amount = total_amount
+                    order.save()
+                    orders_created += 1
+
+        if errors and orders_created == 0:
+            return BaseResponse(
+                success=False,
+                message="Failed to import any orders",
+                errors=errors,
+                status=400
+            )
+
+        return BaseResponse(
+            message=f"Successfully imported {orders_created} vendor order(s)",
+            data={"orders_created": orders_created, "errors": errors},
+            status=201 if orders_created > 0 else 400
+        )
 
 class FirmUserService:
     @staticmethod
@@ -869,3 +1183,123 @@ class InvoiceService:
             },
             status=200
         )
+
+class DashboardService:
+    @staticmethod
+    def get_firm_dashboard_data(firm_slug):
+        from django.db.models import Sum, Count
+        from accounts.models import FirmUsers
+        try:
+            firm = Firm.objects.get(slug=firm_slug)
+        except Firm.DoesNotExist:
+            return BaseResponse(success=False, message="Firm not found", status=404)
+
+        # Financial aggregates
+        cash_in = Invoice.objects.filter(firm=firm, status='APPROVED').aggregate(total=Sum('total_amount'))['total'] or 0
+        cash_out = VendorOrder.objects.filter(firm=firm, order_status__in=['RECEIVED', 'COMPLETED']).aggregate(total=Sum('total_amount'))['total'] or 0
+        profit = float(cash_in) - float(cash_out)
+
+        # Outstanding (unpaid/partial) vendor order amounts
+        outstanding = VendorOrder.objects.filter(firm=firm, payment_status__in=['UNPAID', 'PARTIAL']).aggregate(
+            total=Sum('total_amount'),
+            paid=Sum('amount_paid')
+        )
+        outstanding_amount = float(outstanding['total'] or 0) - float(outstanding['paid'] or 0)
+
+        # Counts
+        total_products = Product.objects.filter(firm=firm).count()
+        total_vendors = Vendor.objects.filter(firm=firm).count()
+        total_customers = Customer.objects.filter(firm=firm).count()
+        total_users = FirmUsers.objects.filter(firm=firm).count()
+
+        # Invoice stats by status
+        invoice_stats = dict(
+            Invoice.objects.filter(firm=firm)
+            .values_list('status')
+            .annotate(count=Count('id'))
+            .values_list('status', 'count')
+        )
+
+        # Order stats by status
+        order_stats = dict(
+            VendorOrder.objects.filter(firm=firm)
+            .values_list('order_status')
+            .annotate(count=Count('id'))
+            .values_list('order_status', 'count')
+        )
+
+        # Recent invoices
+        recent_invoices = list(
+            Invoice.objects.filter(firm=firm)
+            .select_related('customer')
+            .order_by('-created_on')[:5]
+            .values('id', 'invoice_number', 'total_amount', 'status', 'customer__business_name', 'created_on')
+        )
+        for inv in recent_invoices:
+            inv['total_amount'] = float(inv['total_amount'])
+            inv['created_on'] = inv['created_on'].isoformat() if inv['created_on'] else None
+
+        data = {
+            "firm_name": firm.name,
+            "cash_in": float(cash_in),
+            "cash_out": float(cash_out),
+            "profit": profit,
+            "outstanding_amount": outstanding_amount,
+            "total_products": total_products,
+            "total_vendors": total_vendors,
+            "total_customers": total_customers,
+            "total_users": total_users,
+            "invoice_stats": {
+                "pending": invoice_stats.get('PENDING_APPROVAL', 0),
+                "approved": invoice_stats.get('APPROVED', 0),
+                "changes_requested": invoice_stats.get('CHANGES_REQUESTED', 0),
+            },
+            "order_stats": {
+                "pending": order_stats.get('PENDING', 0),
+                "received": order_stats.get('RECEIVED', 0),
+                "completed": order_stats.get('COMPLETED', 0),
+            },
+            "recent_invoices": recent_invoices,
+        }
+        
+        return BaseResponse(data=data, status=200)
+
+    @staticmethod
+    def get_admin_dashboard_data():
+        from django.db.models import Sum, Count
+        cash_in = Invoice.objects.filter(status='APPROVED').aggregate(total=Sum('total_amount'))['total'] or 0
+        cash_out = VendorOrder.objects.filter(order_status__in=['RECEIVED', 'COMPLETED']).aggregate(total=Sum('total_amount'))['total'] or 0
+        profit = float(cash_in) - float(cash_out)
+
+        total_firms = Firm.objects.count()
+        total_invoices = Invoice.objects.count()
+        total_orders = VendorOrder.objects.count()
+
+        # Per-firm breakdown
+        firms = Firm.objects.all()
+        firm_breakdown = []
+        for f in firms:
+            f_cash_in = Invoice.objects.filter(firm=f, status='APPROVED').aggregate(total=Sum('total_amount'))['total'] or 0
+            f_cash_out = VendorOrder.objects.filter(firm=f, order_status__in=['RECEIVED', 'COMPLETED']).aggregate(total=Sum('total_amount'))['total'] or 0
+            firm_breakdown.append({
+                "name": f.name,
+                "slug": f.slug,
+                "cash_in": float(f_cash_in),
+                "cash_out": float(f_cash_out),
+                "profit": float(f_cash_in) - float(f_cash_out),
+                "products": Product.objects.filter(firm=f).count(),
+                "vendors": Vendor.objects.filter(firm=f).count(),
+                "customers": Customer.objects.filter(firm=f).count(),
+            })
+
+        data = {
+            "cash_in": float(cash_in),
+            "cash_out": float(cash_out),
+            "profit": profit,
+            "total_firms": total_firms,
+            "total_invoices": total_invoices,
+            "total_orders": total_orders,
+            "firm_breakdown": firm_breakdown,
+        }
+        
+        return BaseResponse(data=data, status=200)

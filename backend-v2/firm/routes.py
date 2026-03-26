@@ -64,6 +64,18 @@ class ProductListCreateAPIView(APIView):
     def post(self, request, slug):
         return apis.ProductService.create_product(slug, request.data)
 
+class ProductBulkImportAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    schema = AutoSchema()
+
+    @extend_schema(
+        summary="Bulk Import Products",
+        description="Bulk import products from CSV or Excel file.",
+        tags=["Products"]
+    )
+    def post(self, request, slug):
+        return apis.ProductService.bulk_import_products(slug, request.FILES)
+
 
 class FirmUserCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -146,6 +158,18 @@ class VendorOrderReceiveAPIView(APIView):
     )
     def post(self, request, slug, order_id):
         return apis.VendorOrderService.receive_order(slug, order_id, request.data)
+
+class VendorOrderBulkImportAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    schema = AutoSchema()
+
+    @extend_schema(
+        summary="Bulk Import Vendor Orders",
+        description="Bulk import vendor orders from CSV or Excel file.",
+        tags=["Vendor Orders"]
+    )
+    def post(self, request, slug):
+        return apis.VendorOrderService.bulk_import_orders(slug, request.FILES)
 
 class FirmUserListCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -403,3 +427,27 @@ class InvoicePricingPreviewAPIView(APIView):
     )
     def post(self, request, slug):
         return apis.InvoiceService.preview_pricing(slug, request.data)
+class FirmDashboardAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    schema = AutoSchema()
+
+    @extend_schema(
+        summary="Get Firm Dashboard Data",
+        description="Retrieve financial summary for a specific firm.",
+        tags=["Dashboard"]
+    )
+    def get(self, request, slug):
+        return apis.DashboardService.get_firm_dashboard_data(slug)
+
+
+class AdminDashboardAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    schema = AutoSchema()
+
+    @extend_schema(
+        summary="Get Admin Dashboard Data",
+        description="Retrieve financial summary across all firms.",
+        tags=["Dashboard"]
+    )
+    def get(self, request):
+        return apis.DashboardService.get_admin_dashboard_data()

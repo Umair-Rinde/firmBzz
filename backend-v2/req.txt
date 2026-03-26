@@ -6,3 +6,4 @@ django-cors-headers
 django-environ
 PyJWT
 Pillow
+openpyxlopenpyxl==3.1.5

@@ -1,0 +1,7 @@
+{
+  "@odata.context":"https://wabi-west-us-redirect.analysis.windows.net/v1.0/myorg/groups/3a2ad720-d3d1-4ac9-b19c-567b772cf05f/$metadata#exports/$entity","id":"Mi9CbG9iSWRWMi05MDkzNDNjNy02ZDk4LTRmZjEtOThjNi00NDZkYmQyY2JhYjVpVkxCVDhsY1ZhNVdpWjA0c1ZGUVJwcHctYVRaOC4=","createdDateTime":"2025-08-06T08:30:23.2973882Z","lastActionDateTime":"2025-08-06T08:30:25.886779Z","reportId":"6894efc1-96fa-4b72-851f-5f153ed1f5d4","reportName":"Agent Office Count","status":"Failed","error":{
+    "code":"rsParametersNotSpecified","message":"RootActivityId(1578ea2a-1fd5-42a5-b15e-97ed376453e2): Some parameters do not have valid values. Parameter OfficeType is missing values.","details":[
+      
+    ]
+  },"percentComplete":0,"expirationTime":"0001-01-01T00:00:00Z"
+}
