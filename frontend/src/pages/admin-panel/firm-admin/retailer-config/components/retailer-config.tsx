@@ -1,6 +1,7 @@
 import CustomButton from "@/components/ui/custom/custom-button";
 import { Drawer } from "@/components/ui/custom/custom-drawer";
 import CustomInput from "@/components/ui/custom/custom-input";
+import CustomFileInput from "@/components/ui/custom/custom-file-input";
 import CustomSelect from "@/components/ui/custom/custom-select";
 import { DatePickerComponent as CustomDatePicker } from "@/components/ui/custom/date-picker";
 import { axios } from "@/config/axios";
@@ -33,6 +34,7 @@ const RetailerConfigDrawer = ({
     contact_number: Yup.string().required("Contact number is required"),
     customer_type: Yup.object().required("Customer type is required"),
     business_address: Yup.string().required("Business address is required"),
+    fssai_document: Yup.mixed().required("FSSAI document is required"),
   });
 
   //-------- api call ---------//
@@ -76,6 +78,7 @@ const RetailerConfigDrawer = ({
       ? customerTypes.find((t) => t.value === row.customer_type)
       : customerTypes[0],
     fssai_number: row?.fssai_number || "",
+    fssai_document: row?.fssai_document || null,
     gst_number: row?.gst_number || "",
     fssai_expiry: row?.fssai_expiry || null,
     gst_expiry: row?.gst_expiry || null,
@@ -97,12 +100,39 @@ const RetailerConfigDrawer = ({
             initialValues={initialValues}
             validateOnMount
             onSubmit={(values: any) => {
-              const data = {
-                ...values,
-                customer_type: values.customer_type.value,
-                is_active: values.is_active.value,
-              };
-              mutate(data);
+              const formData = new FormData();
+
+              Object.keys(values).forEach(key => {
+                let value = values[key];
+
+                if (value === null || value === undefined) {
+                  return; // Don't append null or undefined
+                }
+
+                // If it's the existing file URL from the backend, we don't want to upload a string
+                // Only append actual new File objects or simple textual fields
+                if (key === 'fssai_document' && typeof value === 'string') {
+                  return;
+                }
+
+                if (key === 'customer_type') {
+                  formData.append(key, value.value);
+                } else if (key === 'is_active') {
+                  formData.append(key, value.value);
+                } else if (key === 'fssai_expiry' || key === 'gst_expiry') {
+                  if (value instanceof Date) {
+                    formData.append(key, value.toISOString());
+                  } else {
+                    formData.append(key, value);
+                  }
+                } else if (value instanceof File) {
+                  formData.append(key, value);
+                } else {
+                  formData.append(key, value);
+                }
+              });
+
+              mutate(formData);
             }}
             validationSchema={validationSchema}
             enableReinitialize
@@ -170,6 +200,13 @@ const RetailerConfigDrawer = ({
                       className="w-full"
                     />
                   </div>
+
+                  <CustomFileInput
+                    name="fssai_document"
+                    label="FSSAI Document"
+                    required
+                    className="w-full"
+                  />
 
                   <div className="grid grid-cols-2 gap-4">
                     <CustomInput

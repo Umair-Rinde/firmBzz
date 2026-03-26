@@ -1,6 +1,7 @@
 import CustomButton from "@/components/ui/custom/custom-button";
 import { Drawer } from "@/components/ui/custom/custom-drawer";
 import CustomInput from "@/components/ui/custom/custom-input";
+import CustomFileInput from "@/components/ui/custom/custom-file-input";
 import CustomSelect from "@/components/ui/custom/custom-select";
 import { DatePickerComponent as CustomDatePicker } from "@/components/ui/custom/date-picker";
 import { axios } from "@/config/axios";
@@ -88,6 +89,8 @@ const FirmUserDrawer = ({
         driving_license: user?.driving_license || "",
         license_expiry: user?.license_expiry || null,
         home_address: user?.home_address || "",
+        license_document: user?.license_document || null,
+        address_proof_document: user?.address_proof_document || null,
         is_active: user?.is_active !== undefined
             ? statusOptions.find((s) => s.value === user.is_active)
             : statusOptions[0],
@@ -105,14 +108,39 @@ const FirmUserDrawer = ({
                     validationSchema={validationSchema}
                     enableReinitialize
                     onSubmit={(values) => {
-                        const data = {
-                            ...values,
-                            gender: values.gender.value,
-                            role: values.role.value,
-                            is_active: values.is_active.value,
-                        };
-                        if (!values.password) delete data.password;
-                        mutate(data);
+                        const formData = new FormData();
+
+                        Object.keys(values).forEach(key => {
+                            let value = (values as any)[key];
+
+                            if (value === null || value === undefined || value === "") {
+                                return; // Skip nulls
+                            }
+
+                            // Don't re-upload string file URLs
+                            if (typeof value === 'string' && (key === 'license_document' || key === 'address_proof_document')) {
+                                return;
+                            }
+
+                            if (key === 'gender' || key === 'role' || key === 'is_active') {
+                                formData.append(key, value.value);
+                            } else if (key === 'license_expiry') {
+                                if (value instanceof Date) {
+                                    formData.append(key, value.toISOString());
+                                } else {
+                                    formData.append(key, value);
+                                }
+                            } else if (key === 'password' && !value) {
+                                // Skip empty password
+                                return;
+                            } else if (value instanceof File) {
+                                formData.append(key, value);
+                            } else {
+                                formData.append(key, value);
+                            }
+                        });
+
+                        mutate(formData as any);
                     }}
                 >
                     {({ errors, touched }) => (
@@ -199,6 +227,19 @@ const FirmUserDrawer = ({
                                     label="Home Address"
                                     placeholder="Enter complete address"
                                 />
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <CustomFileInput
+                                        name="license_document"
+                                        label="License Document (Optional)"
+                                        className="w-full"
+                                    />
+                                    <CustomFileInput
+                                        name="address_proof_document"
+                                        label="Address Proof (Optional)"
+                                        className="w-full"
+                                    />
+                                </div>
 
                                 <CustomSelect
                                     name="is_active"
