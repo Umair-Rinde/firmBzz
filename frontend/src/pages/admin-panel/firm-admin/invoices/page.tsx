@@ -10,6 +10,7 @@ import { Eye, Plus, Printer } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
+
 const STATUS_STYLE: Record<string, string> = {
     PENDING_APPROVAL: "bg-yellow-100 text-yellow-800",
     APPROVED: "bg-green-100 text-green-800",
@@ -59,27 +60,20 @@ const InvoicesPage = () => {
     const { firmId } = useParams();
     const navigate = useNavigate();
 
-    const invalidateList = () =>
-        queryClient.invalidateQueries({ queryKey: [`/firm/${firmId}/invoices/`] });
-
-    const { mutate: printSingle, isPending: isPrintingSingle } = useMutation({
-        mutationFn: (invoiceId: string) =>
-            axios.post(`/firm/${firmId}/invoices/${invoiceId}/print/`),
-        onSuccess: () => {
-            toast.success("Invoice marked as printed");
-            invalidateList();
-        },
-        onError: (err: any) => {
-            toast.error(err?.response?.data?.message || "Failed to print invoice");
-        },
-    });
+    const openPrintPage = (invoiceId: string) => {
+        window.open(`/dashboard/${firmId}/invoices/${invoiceId}/print`, "_blank");
+    };
 
     const { mutate: batchPrint, isPending: isBatchPrinting } = useMutation({
         mutationFn: () => axios.post(`/firm/${firmId}/invoices/batch-print/`),
         onSuccess: (res: any) => {
             const count = res?.data?.data?.printed_count ?? 0;
-            toast.success(`${count} invoice(s) marked as printed`);
-            invalidateList();
+            const ids: string[] = res?.data?.data?.printed_ids ?? [];
+            toast.success(`${count} invoice(s) sent to print`);
+            queryClient.invalidateQueries({ queryKey: [`/firm/${firmId}/invoices/`] });
+            ids.forEach((invId) => {
+                window.open(`/dashboard/${firmId}/invoices/${invId}/print`, "_blank");
+            });
         },
         onError: (err: any) => {
             toast.error(err?.response?.data?.message || "Batch print failed");
@@ -171,21 +165,17 @@ const InvoicesPage = () => {
             header: "Actions",
             cell: ({ row }) => {
                 const inv = row.original;
-                const canPrint = inv.status === "APPROVED" && !inv.is_printed;
                 return (
                     <div className="flex gap-2 justify-end">
-                        {canPrint && (
-                            <CustomButton
-                                variant="outline"
-                                size="sm"
-                                className="h-8 border-blue-200 text-blue-700 hover:bg-blue-50"
-                                onClick={() => printSingle(inv.id)}
-                                disabled={isPrintingSingle}
-                            >
-                                <Printer className="w-4 h-4 mr-1" />
-                                Print
-                            </CustomButton>
-                        )}
+                        <CustomButton
+                            variant="outline"
+                            size="sm"
+                            className="h-8 border-blue-200 text-blue-700 hover:bg-blue-50"
+                            onClick={() => openPrintPage(inv.id)}
+                        >
+                            <Printer className="w-4 h-4 mr-1" />
+                            Print
+                        </CustomButton>
                         <CustomButton
                             variant="outline"
                             size="sm"

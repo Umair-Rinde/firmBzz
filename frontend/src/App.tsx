@@ -34,6 +34,7 @@ import VendorOrderAddPage from "./pages/admin-panel/firm-admin/vendor-orders/cre
 import InvoicesPage from "./pages/admin-panel/firm-admin/invoices/page";
 import InvoiceCreatePage from "./pages/admin-panel/firm-admin/invoices/create-invoice";
 import InvoiceEditPage from "./pages/admin-panel/firm-admin/invoices/edit-invoice";
+import PrintInvoicePage from "./pages/admin-panel/firm-admin/invoices/print-invoice";
 import FirmRetailerOrdersPage from "./pages/admin-panel/firm-admin/retailer-orders/page";
 
 const queryClient = new QueryClient();
@@ -202,6 +203,16 @@ const App = () => (
                   }
                 />
               </Route>
+
+              {/* Print pages - outside DashboardLayout for clean print */}
+              <Route
+                path="/dashboard/:firmId/invoices/:id/print"
+                element={
+                  <ProtectedRoute>
+                    <PrintInvoicePage />
+                  </ProtectedRoute>
+                }
+              />
 
               <Route path="*" element={<NotFound />} />
             </Routes>

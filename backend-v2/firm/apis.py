@@ -1431,13 +1431,6 @@ class InvoiceService:
         except Invoice.DoesNotExist:
             return BaseResponse(success=False, message="Invoice not found", status=404)
 
-        if invoice.status != "APPROVED":
-            return BaseResponse(
-                success=False,
-                message="Only approved invoices can be printed",
-                status=400,
-            )
-
         if not invoice.is_printed:
             invoice.is_printed = True
             invoice.printed_on = timezone.now()
@@ -1484,7 +1477,12 @@ class InvoiceService:
         serializer = InvoiceSerializer(updated_invoices, many=True)
         return BaseResponse(
             message=f"{len(ids)} invoice(s) marked as printed",
-            data={"rows": serializer.data, "count": len(ids)},
+            data={
+                "rows": serializer.data,
+                "count": len(ids),
+                "printed_count": len(ids),
+                "printed_ids": [str(i) for i in ids],
+            },
             status=200,
         )
 

@@ -374,16 +374,9 @@ const InvoiceEditPage = () => {
     },
   });
 
-  const { mutate: printInvoice, isPending: isPrinting } = useMutation({
-    mutationFn: () => axios.post(`/firm/${firmId}/invoices/${id}/print/`),
-    onSuccess: () => {
-      toast.success("Invoice marked as printed");
-      queryClient.invalidateQueries({ queryKey: [invoiceQueryKey] });
-    },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || "Failed to print invoice");
-    },
-  });
+  const openPrintPage = () => {
+    window.open(`/dashboard/${firmId}/invoices/${id}/print`, "_blank");
+  };
 
   if (isLoadingInvoice || !invoice) {
     return <div className="mt-[150px] px-6">Loading invoice...</div>;
@@ -395,7 +388,6 @@ const InvoiceEditPage = () => {
   };
 
   const totalDisplay = invoice.total_amount != null ? Number(invoice.total_amount).toFixed(2) : "—";
-  const canPrint = invoice.status === "APPROVED" && !invoice.is_printed;
 
   return (
     <div className="mt-[150px] px-6 pb-20">
@@ -425,8 +417,7 @@ const InvoiceEditPage = () => {
             <CustomButton
               variant="outline"
               className="gap-2 border-blue-200 text-blue-700 hover:bg-blue-50"
-              onClick={() => printInvoice()}
-              isPending={isPrinting}
+              onClick={openPrintPage}
             >
               <Printer className="w-4 h-4" />
               Print Invoice
