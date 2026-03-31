@@ -28,7 +28,11 @@ const BulkImportDrawer = ({
     });
 
     const downloadTemplate = () => {
-        const csvContent = "data:text/csv;charset=utf-8,name,description,category,hsn_code\nSample Product,This is a sample description,Category A,123456";
+        const headers =
+            "itemname,description,category,hsnno,gstper,liters,pack,mrp,prate,prateur,srate,rate/uni,product_discount,active";
+        const sample =
+            "Sample Oil,Optional text,Beverages,123456,18,1,6,120,1000,950,800,75,10,yes";
+        const csvContent = `data:text/csv;charset=utf-8,${headers}\n${sample}`;
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
@@ -52,7 +56,7 @@ const BulkImportDrawer = ({
             setImportErrors(errors || []);
 
             queryClient.invalidateQueries({
-                queryKey: [`firm/${firmId}/products/`],
+                queryKey: [`/firm/${firmId}/products/`],
             });
 
             if (!errors || errors.length === 0) {
@@ -116,14 +120,16 @@ const BulkImportDrawer = ({
                             <Form className="h-full flex flex-col justify-between pt-16">
                                 <div className="flex flex-col gap-6 py-4 px-[20px] mb-16">
                                     <div className="text-sm text-gray-500 mb-2">
-                                        Upload an Excel (.xlsx, .xls) or CSV (.csv) file.
-                                        <br />
-                                        Required column headers mapping (case-insensitive):
-                                        <ul className="list-disc ml-5 mt-1 text-xs">
-                                            <li><b>name</b> or <b>product name</b> (Required)</li>
-                                            <li><b>description</b></li>
-                                            <li><b>category</b></li>
-                                            <li><b>hsn_code</b> or <b>hsn code</b></li>
+                                        Upload Excel (.xlsx, .xls) or CSV. Headers are matched case-insensitive.
+                                        <ul className="list-disc ml-5 mt-2 text-xs space-y-1">
+                                            <li><b>itemname</b> / name / product name (required)</li>
+                                            <li><b>hsnno</b> / hsn_code / hsn</li>
+                                            <li><b>gstper</b> / gst_percent</li>
+                                            <li><b>liters</b>, <b>pack</b>, <b>mrp</b></li>
+                                            <li><b>prate</b> purchase_rate, <b>prateur</b> purchase_rate_per_unit</li>
+                                            <li><b>srate</b> sale_rate, <b>rate/uni</b> rate_per_unit</li>
+                                            <li><b>product_discount</b> / discount / disc</li>
+                                            <li><b>active</b> / is_active (yes/no)</li>
                                         </ul>
                                     </div>
 

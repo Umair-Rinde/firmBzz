@@ -49,7 +49,7 @@ const RetailerConfigDrawer = ({
       );
       handleClose();
       queryClient.invalidateQueries({
-        queryKey: [`firm/${firmId}/customers/`],
+        queryKey: [`/firm/${firmId}/customers/`],
       });
     },
     onError: (resp: any) => {
@@ -69,6 +69,7 @@ const RetailerConfigDrawer = ({
   ];
 
   const initialValues = {
+    reference_code: row?.reference_code || "",
     business_name: row?.business_name || "",
     owner_name: row?.owner_name || "",
     email: row?.email || "",
@@ -140,6 +141,12 @@ const RetailerConfigDrawer = ({
             {({ errors, values }) => (
               <Form>
                 <div className="flex flex-col gap-6 py-20 px-[20px] mb-16">
+                  <CustomInput
+                    name="reference_code"
+                    label="Retailer code (e.g. R001)"
+                    placeholder="Optional external id"
+                    className="w-full"
+                  />
                   <div className="grid grid-cols-2 gap-4">
                     <CustomInput
                       name="business_name"

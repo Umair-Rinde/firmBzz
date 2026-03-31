@@ -1,6 +1,11 @@
+from uuid import uuid4
+
+from django.conf import settings
 from portal.base import BaseModel
 from django.db import models
+from django.db.models import Q
 from django.utils.text import slugify
+
 
 class Firm(BaseModel):
     name = models.CharField(max_length=255)
@@ -18,18 +23,88 @@ class Firm(BaseModel):
 
 
 class Product(BaseModel):
-    """Product Master - Base product information"""
+    """
+    Product master aligned with price list / Excel:
+    Category, ItemName, HSN, GST%, Liters, Pack, MRP, purchase/sale rates, discount.
+    Scheme fields for promotional offers (BOGO, flat discount, etc.).
+    """
+    from .choices import SchemeTypeChoices
+
     firm = models.ForeignKey(Firm, on_delete=models.CASCADE, related_name="products")
-    name = models.CharField(max_length=255)
+    product_code = models.CharField(
+        max_length=64,
+        blank=True,
+        null=True,
+        db_index=True,
+        help_text="External / ERP product id (e.g. P001)",
+    )
+    name = models.CharField(max_length=255, help_text="Item name / description")
     slug = models.SlugField(unique=True, blank=True)
     description = models.TextField(null=True, blank=True)
-    hsn_code = models.CharField(max_length=50, blank=True, null=True)
-    image = models.ImageField(upload_to='products/', blank=True, null=True)
-    category = models.CharField(max_length=100, blank=True, null=True)
+    category = models.CharField(max_length=500, blank=True, null=True)
+    hsn_code = models.CharField(max_length=50, blank=True, null=True, help_text="HSN number")
+    gst_percent = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0, help_text="GST %"
+    )
+    liters = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    pack = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    mrp = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    purchase_rate = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    purchase_rate_per_unit = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    sale_rate = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    rate_per_unit = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    product_discount = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        help_text="Discount % applied on sale unit rate",
+    )
+    no_discount = models.BooleanField(
+        default=False,
+        help_text="If true, default product discount does not apply",
+    )
+
+    scheme_type = models.CharField(
+        max_length=20,
+        choices=SchemeTypeChoices.choices,
+        default=SchemeTypeChoices.NONE,
+    )
+    scheme_buy_qty = models.PositiveIntegerField(
+        default=0, help_text="Buy X quantity (for BUY_X_GET_Y)",
+    )
+    scheme_free_qty = models.PositiveIntegerField(
+        default=0, help_text="Get Y free quantity (for BUY_X_GET_Y)",
+    )
+    scheme_free_product = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="free_in_schemes",
+        help_text="Product given free (defaults to self when blank)",
+    )
+    scheme_discount_percent = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        help_text="Flat discount % when scheme_type = FLAT_DISCOUNT",
+    )
+
+    is_active = models.BooleanField(default=True)
+    image = models.ImageField(upload_to="products/", blank=True, null=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["firm", "product_code"],
+                condition=Q(product_code__isnull=False) & ~Q(product_code=""),
+                name="firm_product_code_unique_when_set",
+            ),
+        ]
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = slugify(self.name)
+            self.slug = slugify(f"{self.name}-{self.firm_id}-{uuid4().hex[:8]}")
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -59,6 +134,13 @@ class Customer(BaseModel):
     business_address = models.TextField()
     email = models.EmailField()
     is_active = models.BooleanField(default=True)
+    reference_code = models.CharField(
+        max_length=64,
+        blank=True,
+        null=True,
+        db_index=True,
+        help_text="External retailer id (e.g. R001)",
+    )
 
     def save(self, *args, **kwargs):
         if not self.slug:
@@ -67,6 +149,15 @@ class Customer(BaseModel):
 
     def __str__(self):
         return f"{self.business_name} ({self.get_customer_type_display()})"
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["firm", "reference_code"],
+                condition=Q(reference_code__isnull=False) & ~Q(reference_code=""),
+                name="firm_customer_reference_code_unique_when_set",
+            ),
+        ]
 
 
 from random import randint
@@ -85,6 +176,13 @@ class Vendor(BaseModel):
     bank_account_number = models.CharField(max_length=50, blank=True, null=True)
     ifsc_code = models.CharField(max_length=20, blank=True, null=True)
     email = models.EmailField()
+    reference_code = models.CharField(
+        max_length=64,
+        blank=True,
+        null=True,
+        db_index=True,
+        help_text="External vendor id (e.g. V001)",
+    )
 
     def save(self, *args, **kwargs):
         if not self.slug:
@@ -94,41 +192,28 @@ class Vendor(BaseModel):
     def __str__(self):
         return self.vendor_name
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["firm", "reference_code"],
+                condition=Q(reference_code__isnull=False) & ~Q(reference_code=""),
+                name="firm_vendor_reference_code_unique_when_set",
+            ),
+        ]
+
 
 class ProductBatch(BaseModel):
-    """Product Batch/Inventory - Each batch received from vendor"""
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='batches')
-    vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE, related_name='product_batches')
-    slug = models.SlugField(unique=True, blank=True)
-    
-    # Batch Details
-    batch_number = models.CharField(max_length=100)
-    manufacturing_date = models.DateTimeField(blank=True, null=True)
-    expiry_date = models.DateTimeField(blank=True, null=True)
-    
-    # Receipt Details
-    received_date = models.DateTimeField()
-    quantity_received = models.IntegerField()
-    quantity_remaining = models.IntegerField()
-    
-    # Pricing (per batch)
-    cost_price = models.DecimalField(max_digits=10, decimal_places=2, help_text="Purchase price from vendor")
-    selling_price_super_seller = models.DecimalField(max_digits=10, decimal_places=2, help_text="Selling price for super seller retailers")
-    selling_price_distributor = models.DecimalField(max_digits=10, decimal_places=2, help_text="Selling price for distributors")
+    """Stock line: quantity and expiry only (FEFO by expiry)."""
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="batches")
+    quantity = models.IntegerField(default=0)
+    expiry_date = models.DateField(null=True, blank=True)
 
     class Meta:
-        unique_together = ('product', 'batch_number', 'vendor')
-        ordering = ['-received_date']
-
-    def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(f"{self.product.name}-{self.batch_number}-{self.vendor.vendor_name}")
-        if not self.quantity_remaining:
-            self.quantity_remaining = self.quantity_received
-        super().save(*args, **kwargs)
+        unique_together = ("product", "expiry_date")
+        ordering = ["expiry_date", "-created_on"]
 
     def __str__(self):
-        return f"{self.product.name} - Batch {self.batch_number} ({self.vendor.vendor_name})"
+        return f"{self.product.name} qty={self.quantity} exp={self.expiry_date}"
 
 
 class VendorOrder(BaseModel):
@@ -215,41 +300,83 @@ class VendorOrderItem(BaseModel):
         return self.quantity_received * self.cost_price_per_unit
     
     def create_product_batch(self):
-        """Create or update ProductBatch when order item is received"""
-        if self.quantity_received > 0 and not self.product_batch:
-            # Check if batch already exists
-            existing_batch = ProductBatch.objects.filter(
-                product=self.product,
-                vendor=self.order.vendor,
-                batch_number=self.batch_number
-            ).first()
-            
-            if existing_batch:
-                # Update existing batch
-                existing_batch.quantity_received += self.quantity_received
-                existing_batch.quantity_remaining += self.quantity_received
-                existing_batch.save()
-                self.product_batch = existing_batch
-            else:
-                # Create new batch
-                batch = ProductBatch.objects.create(
-                    product=self.product,
-                    vendor=self.order.vendor,
-                    batch_number=self.batch_number,
-                    manufacturing_date=self.manufacturing_date,
-                    expiry_date=self.expiry_date,
-                    received_date=self.order.received_date or self.order.order_date,
-                    quantity_received=self.quantity_received,
-                    quantity_remaining=self.quantity_received,
-                    cost_price=self.cost_price_per_unit,
-                    selling_price_super_seller=self.selling_price_super_seller,
-                    selling_price_distributor=self.selling_price_distributor
-                )
-                self.product_batch = batch
-            
-            self.save()
-            return self.product_batch
-        return None
+        """Merge received qty into ProductBatch by (product, expiry_date)."""
+        if self.quantity_received <= 0 or self.product_batch_id:
+            return None
+        exp = self.expiry_date
+        exp_date = exp.date() if exp is not None and hasattr(exp, "date") else exp
+        batch, _ = ProductBatch.objects.get_or_create(
+            product=self.product,
+            expiry_date=exp_date,
+            defaults={"quantity": 0},
+        )
+        batch.quantity += self.quantity_received
+        batch.save(update_fields=["quantity", "updated_on"])
+        self.product_batch = batch
+        self.save(update_fields=["product_batch", "updated_on"])
+        return batch
+
+
+class RetailerOrder(BaseModel):
+    """Salesman order to one retailer; firm admin bundles multiple into an invoice."""
+    from .choices import RetailerOrderStatusChoices
+
+    firm = models.ForeignKey(Firm, on_delete=models.CASCADE, related_name="retailer_orders")
+    customer = models.ForeignKey(
+        Customer, on_delete=models.CASCADE, related_name="retailer_orders"
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="retailer_orders_created",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=RetailerOrderStatusChoices.choices,
+        default=RetailerOrderStatusChoices.SUBMITTED,
+    )
+    reference = models.CharField(max_length=100, blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)
+
+    class Meta:
+        ordering = ["-created_on"]
+
+    def __str__(self):
+        return f"Retailer order {self.id} — {self.customer.business_name}"
+
+
+class RetailerOrderItem(BaseModel):
+    order = models.ForeignKey(
+        RetailerOrder, on_delete=models.CASCADE, related_name="items"
+    )
+    product = models.ForeignKey(
+        Product, on_delete=models.CASCADE, related_name="retailer_order_items"
+    )
+    quantity = models.PositiveIntegerField()
+    rate = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        help_text="Unit rate snapshot when the line was created",
+    )
+    applied_discount_percent = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        help_text="Extra line discount % (on top of product defaults)",
+    )
+    scheme_applied = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Snapshot e.g. buy_qty / free_qty when scheme applies",
+    )
+
+    class Meta:
+        ordering = ["created_on"]
+
+    def __str__(self):
+        return f"{self.product.name} x {self.quantity}"
+
 
 class Invoice(BaseModel):
     """Invoice generated for a Customer (Super Seller or Distributor)"""
@@ -269,9 +396,22 @@ class Invoice(BaseModel):
     )
     
     rejection_note = models.TextField(blank=True, null=True)
-    
+
+    is_printed = models.BooleanField(default=False)
+    printed_on = models.DateTimeField(blank=True, null=True)
+    printed_by = models.ForeignKey(
+        'accounts.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='printed_invoices',
+    )
+
     created_by = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True, related_name='created_invoices')
     approved_by = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_invoices')
+    source_orders = models.ManyToManyField(
+        RetailerOrder,
+        related_name="invoices",
+        blank=True,
+        help_text="Retailer (salesman) orders combined into this invoice; same customer only.",
+    )
 
     class Meta:
         ordering = ['-created_on']
@@ -290,10 +430,32 @@ class InvoiceItem(BaseModel):
     """Line items for an Invoice"""
     invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name='items')
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='invoice_items')
-    product_batch = models.ForeignKey('ProductBatch', on_delete=models.SET_NULL, null=True, related_name='invoice_items')
+    product_batch = models.ForeignKey(ProductBatch, on_delete=models.SET_NULL, null=True, related_name='invoice_items')
     
     quantity = models.IntegerField(default=1)
+    free_quantity = models.PositiveIntegerField(
+        default=0,
+        help_text="Free units from scheme (e.g. BOGO)",
+    )
     rate = models.DecimalField(max_digits=10, decimal_places=2, help_text="Price per unit depending on customer type")
+    discount_percent = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+    )
+    gst_percent = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        help_text="GST % snapshot for the line",
+    )
+    line_total = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Optional stored line total (tax-inclusive snapshot)",
+    )
     
     class Meta:
         ordering = ['created_on']
@@ -304,4 +466,46 @@ class InvoiceItem(BaseModel):
     @property
     def amount(self):
         """Calculate total amount for this line item"""
+        if self.line_total is not None:
+            return self.line_total
         return self.quantity * self.rate
+
+
+class Payment(BaseModel):
+    """
+    Payment against an invoice. Supports partial payments — multiple Payment
+    rows per invoice build up the paid amount over time.
+    """
+    from .choices import PaymentModeChoices
+
+    invoice = models.ForeignKey(
+        Invoice, on_delete=models.CASCADE, related_name="payments"
+    )
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    mode = models.CharField(
+        max_length=20,
+        choices=PaymentModeChoices.choices,
+        default=PaymentModeChoices.CASH,
+    )
+    reference = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        help_text="Transaction ID / cheque number / UTR",
+    )
+    note = models.TextField(blank=True, null=True)
+    paid_on = models.DateTimeField(
+        help_text="Date/time the payment was actually made",
+    )
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="recorded_payments",
+    )
+
+    class Meta:
+        ordering = ["-paid_on", "-created_on"]
+
+    def __str__(self):
+        return f"₹{self.amount} ({self.get_mode_display()}) → Invoice {self.invoice_id}"

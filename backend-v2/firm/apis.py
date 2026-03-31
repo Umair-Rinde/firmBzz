@@ -1,15 +1,41 @@
-from .models import Firm, Product, VendorOrder, VendorOrderItem, Vendor, Customer, Invoice, InvoiceItem
+from decimal import Decimal
+
+from .models import (
+    Firm,
+    Product,
+    VendorOrder,
+    VendorOrderItem,
+    Vendor,
+    Customer,
+    Invoice,
+    InvoiceItem,
+    ProductBatch,
+    RetailerOrder,
+    Payment,
+)
 from accounts.models import FirmUsers
 from .serializers import (
-    FirmSerializer, ProductSerializer, VendorOrderSerializer, 
-    VendorOrderCreateSerializer, FirmUserSerializer, FirmUserCreateSerializer,
-    FirmUserUpdateSerializer, VendorSerializer, CustomerSerializer, 
-    InvoiceSerializer, InvoiceCreateUpdateSerializer
+    FirmSerializer,
+    ProductSerializer,
+    VendorOrderSerializer,
+    VendorOrderCreateSerializer,
+    FirmUserSerializer,
+    FirmUserCreateSerializer,
+    FirmUserUpdateSerializer,
+    VendorSerializer,
+    CustomerSerializer,
+    InvoiceSerializer,
+    InvoiceFromRetailerOrdersSerializer,
+    RetailerOrderSerializer,
+    RetailerOrderCreateSerializer,
+    PaymentSerializer,
+    PaymentCreateSerializer,
 )
+from .pricing import effective_unit_rate
 from portal.base import BaseResponse
 from django.db import transaction
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Q, F, Sum
 
 
 def _get_pg_limit_q(params):
@@ -66,6 +92,32 @@ def _apply_datagrid(queryset, model, params, extra_search_fields=None, ignore_fi
     start = pg * limit
     end = start + limit
     return queryset[start:end], count
+
+
+def _row_get(row, *keys):
+    for k in keys:
+        if k in row and row[k] is not None and str(row[k]).strip() != "":
+            return row[k]
+    return None
+
+
+def _parse_decimal_cell(val, default=None):
+    if default is None:
+        default = Decimal("0")
+    if val is None or str(val).strip() == "":
+        return default
+    try:
+        return Decimal(str(val).replace(",", "").strip())
+    except Exception:
+        return default
+
+
+def _parse_active_cell(val):
+    if val is None or str(val).strip() == "":
+        return True
+    s = str(val).strip().upper()
+    return s not in ("NO", "FALSE", "0", "N", "INACTIVE")
+
 
 class FirmService:
     @staticmethod
@@ -199,7 +251,7 @@ class ProductService:
                 status=404
             )
         
-        products = Product.objects.filter(firm=firm).order_by("-created_on")
+        products = Product.objects.filter(firm=firm).select_related("scheme_free_product").order_by("-created_on")
         params = params or {}
         page_qs, count = _apply_datagrid(
             queryset=products,
@@ -289,27 +341,54 @@ class ProductService:
 
         with transaction.atomic():
             for i, row in enumerate(products_data):
-                # Map potential column names
-                name = str(row.get('name', row.get('product name', ''))).strip() if row.get('name', row.get('product name', '')) else ''
-                description = str(row.get('description', '')).strip() if row.get('description', '') else ''
-                category = str(row.get('category', '')).strip() if row.get('category', '') else ''
-                hsn_code = str(row.get('hsn_code', row.get('hsn code', row.get('hsn', '')))).strip() if row.get('hsn_code', row.get('hsn code', row.get('hsn', ''))) else ''
+                name_raw = _row_get(row, "itemname", "item name", "name", "product name")
+                name = str(name_raw).strip() if name_raw else ""
+                description = str(_row_get(row, "description") or "").strip()
+                category = str(_row_get(row, "category") or "").strip()
+                hsn_code = str(
+                    _row_get(row, "hsnno", "hsn_no", "hsn_code", "hsn code", "hsn") or ""
+                ).strip()
 
                 if not name:
-                    errors.append(f"Row {i+2}: 'name' is required")
+                    errors.append(f"Row {i+2}: item name / name is required")
                     continue
 
-                # Ensure product doesn't already exist for this firm by name
                 if Product.objects.filter(firm=firm, name__iexact=name).exists():
-                    errors.append(f"Row {i+2}: Product with name '{name}' already exists")
+                    errors.append(f"Row {i+2}: Product '{name}' already exists")
                     continue
-                
+
                 Product.objects.create(
                     firm=firm,
                     name=name,
-                    description=description,
-                    category=category,
-                    hsn_code=hsn_code
+                    description=description or None,
+                    category=category or None,
+                    hsn_code=hsn_code or None,
+                    gst_percent=_parse_decimal_cell(
+                        _row_get(row, "gstper", "gst_percent", "gst %")
+                    ),
+                    liters=_parse_decimal_cell(_row_get(row, "liters")),
+                    pack=_parse_decimal_cell(_row_get(row, "pack")),
+                    mrp=_parse_decimal_cell(_row_get(row, "mrp")),
+                    purchase_rate=_parse_decimal_cell(
+                        _row_get(row, "prate", "purchase_rate")
+                    ),
+                    purchase_rate_per_unit=_parse_decimal_cell(
+                        _row_get(row, "prateur", "purchase_rate_per_unit")
+                    ),
+                    sale_rate=_parse_decimal_cell(_row_get(row, "srate", "sale_rate")),
+                    rate_per_unit=_parse_decimal_cell(
+                        _row_get(
+                            row,
+                            "rate/uni",
+                            "rate_uni",
+                            "rate per unit",
+                            "rate_per_unit",
+                        )
+                    ),
+                    product_discount=_parse_decimal_cell(
+                        _row_get(row, "product_discount", "discount", "disc")
+                    ),
+                    is_active=_parse_active_cell(_row_get(row, "active", "is_active")),
                 )
                 success_count += 1
 
@@ -984,7 +1063,7 @@ class ProductCrudService:
     @staticmethod
     def get_product(firm_slug, product_id):
         try:
-            product = Product.objects.get(id=product_id, firm__slug=firm_slug)
+            product = Product.objects.select_related("scheme_free_product").get(id=product_id, firm__slug=firm_slug)
             serializer = ProductSerializer(product)
             return BaseResponse(data=serializer.data, status=200)
         except Product.DoesNotExist:
@@ -1011,6 +1090,77 @@ class ProductCrudService:
             return BaseResponse(message="Product deleted successfully", status=200)
         except Product.DoesNotExist:
             return BaseResponse(success=False, message="Product not found", status=404)
+
+
+class RetailerOrderService:
+    """Salesman orders to retailers; listed by firm; invoiced by admin via invoice API."""
+
+    @staticmethod
+    def list_retailer_orders(firm_slug, params=None):
+        try:
+            firm = Firm.objects.get(slug=firm_slug)
+        except Firm.DoesNotExist:
+            return BaseResponse(success=False, message="Firm not found", status=404)
+
+        qs = (
+            RetailerOrder.objects.filter(firm=firm)
+            .select_related("customer", "created_by")
+            .order_by("-created_on")
+        )
+        params = params or {}
+        page_qs, count = _apply_datagrid(
+            queryset=qs,
+            model=RetailerOrder,
+            params=params,
+            extra_search_fields=[
+                "customer__business_name",
+                "reference",
+                "notes",
+            ],
+            ignore_fields=["id", "firm", "customer", "created_by"],
+        )
+        data = {
+            "rows": RetailerOrderSerializer(page_qs, many=True).data,
+            "count": count,
+        }
+        return BaseResponse(data=data, status=200)
+
+    @staticmethod
+    def create_retailer_order(firm_slug, data, user):
+        try:
+            firm = Firm.objects.get(slug=firm_slug)
+        except Firm.DoesNotExist:
+            return BaseResponse(success=False, message="Firm not found", status=404)
+
+        serializer = RetailerOrderCreateSerializer(
+            data=data,
+            context={"firm": firm, "request_user": user},
+        )
+        if serializer.is_valid():
+            order = serializer.save()
+            return BaseResponse(
+                message="Retailer order created",
+                data=RetailerOrderSerializer(order).data,
+                status=201,
+            )
+        return BaseResponse(
+            success=False,
+            message="Invalid data",
+            errors=serializer.errors,
+            status=400,
+        )
+
+    @staticmethod
+    def get_retailer_order(firm_slug, order_id):
+        try:
+            order = RetailerOrder.objects.get(id=order_id, firm__slug=firm_slug)
+        except RetailerOrder.DoesNotExist:
+            return BaseResponse(success=False, message="Order not found", status=404)
+        return BaseResponse(
+            data=RetailerOrderSerializer(order).data,
+            status=200,
+        )
+
 
 class InvoiceService:
     @staticmethod
@@ -1056,24 +1206,24 @@ class InvoiceService:
         except Firm.DoesNotExist:
             return BaseResponse(success=False, message="Firm not found", status=404)
 
-        # Inject firm ID
-        data['firm'] = firm.id
-
-        serializer = InvoiceCreateUpdateSerializer(data=data, context={'request_user': user})
+        serializer = InvoiceFromRetailerOrdersSerializer(
+            data=data,
+            context={"firm": firm, "request_user": user},
+        )
         if serializer.is_valid():
             with transaction.atomic():
-                invoice = serializer.save(firm=firm)
+                invoice = serializer.save()
                 response_serializer = InvoiceSerializer(invoice)
                 return BaseResponse(
-                    message="Invoice created successfully",
+                    message="Invoice created from retailer orders",
                     data=response_serializer.data,
-                    status=201
+                    status=201,
                 )
         return BaseResponse(
             success=False,
             message="Invalid data",
             errors=serializer.errors,
-            status=400
+            status=400,
         )
 
     @staticmethod
@@ -1084,7 +1234,11 @@ class InvoiceService:
             return BaseResponse(success=False, message="Firm not found", status=404)
 
         try:
-            invoice = Invoice.objects.get(id=invoice_id, firm=firm)
+            invoice = (
+                Invoice.objects.select_related("customer", "created_by", "approved_by")
+                .prefetch_related("items__product", "items__product_batch", "source_orders")
+                .get(id=invoice_id, firm=firm)
+            )
             serializer = InvoiceSerializer(invoice)
             return BaseResponse(data=serializer.data, status=200)
         except Invoice.DoesNotExist:
@@ -1102,30 +1256,15 @@ class InvoiceService:
         except Invoice.DoesNotExist:
             return BaseResponse(success=False, message="Invoice not found", status=404)
 
-        if invoice.status == 'APPROVED':
-            return BaseResponse(success=False, message="Cannot edit an approved invoice", status=400)
+        if invoice.status == "APPROVED":
+            return BaseResponse(
+                success=False, message="Cannot edit an approved invoice", status=400
+            )
 
-        serializer = InvoiceCreateUpdateSerializer(invoice, data=data, partial=True)
-        if serializer.is_valid():
-            with transaction.atomic():
-                # If changes were requested, and the creator updates it, we could move it back to pending
-                # or let it stay until approved. Moving back to pending makes sense.
-                invoice = serializer.save()
-                invoice.status = 'PENDING_APPROVAL'
-                invoice.rejection_note = None
-                invoice.save()
-
-                response_serializer = InvoiceSerializer(invoice)
-                return BaseResponse(
-                    message="Invoice updated successfully",
-                    data=response_serializer.data,
-                    status=200
-                )
         return BaseResponse(
             success=False,
-            message="Invalid data",
-            errors=serializer.errors,
-            status=400
+            message="Invoice lines are fixed at creation (from retailer orders). Use approve / request-changes flows.",
+            status=400,
         )
         
     @staticmethod
@@ -1215,6 +1354,132 @@ class InvoiceService:
             status=200
         )
 
+    VALID_STATUS_TRANSITIONS = {
+        "APPROVED": ["OUT_FOR_DELIVERY", "CANCELLED"],
+        "OUT_FOR_DELIVERY": ["DELIVERED", "CANCELLED"],
+        "DELIVERED": ["PARTIALLY_PAID", "PAID", "CLOSED", "CANCELLED"],
+        "PARTIALLY_PAID": ["PAID", "CLOSED", "CANCELLED"],
+        "PAID": ["CLOSED"],
+        "CHANGES_REQUESTED": ["PENDING_APPROVAL", "CANCELLED"],
+        "PENDING_APPROVAL": ["CANCELLED"],
+    }
+
+    @staticmethod
+    def print_invoice(firm_slug, invoice_id, user):
+        try:
+            firm = Firm.objects.get(slug=firm_slug)
+        except Firm.DoesNotExist:
+            return BaseResponse(success=False, message="Firm not found", status=404)
+
+        try:
+            invoice = Invoice.objects.select_related(
+                "customer", "created_by", "approved_by"
+            ).prefetch_related(
+                "items__product", "items__product_batch"
+            ).get(id=invoice_id, firm=firm)
+        except Invoice.DoesNotExist:
+            return BaseResponse(success=False, message="Invoice not found", status=404)
+
+        if invoice.status != "APPROVED":
+            return BaseResponse(
+                success=False,
+                message="Only approved invoices can be printed",
+                status=400,
+            )
+
+        if not invoice.is_printed:
+            invoice.is_printed = True
+            invoice.printed_on = timezone.now()
+            invoice.printed_by = user
+            invoice.save(update_fields=["is_printed", "printed_on", "printed_by", "updated_on"])
+
+        serializer = InvoiceSerializer(invoice)
+        return BaseResponse(
+            message="Invoice marked as printed",
+            data=serializer.data,
+            status=200,
+        )
+
+    @staticmethod
+    def batch_print_invoices(firm_slug, user):
+        try:
+            firm = Firm.objects.get(slug=firm_slug)
+        except Firm.DoesNotExist:
+            return BaseResponse(success=False, message="Firm not found", status=404)
+
+        invoices = Invoice.objects.filter(
+            firm=firm, status="APPROVED", is_printed=False,
+        ).select_related(
+            "customer", "created_by", "approved_by"
+        ).prefetch_related(
+            "items__product", "items__product_batch"
+        ).order_by("created_on")
+
+        if not invoices.exists():
+            return BaseResponse(
+                success=False,
+                message="No approved unprinted invoices found",
+                status=404,
+            )
+
+        now = timezone.now()
+        ids = list(invoices.values_list("id", flat=True))
+        Invoice.objects.filter(id__in=ids).update(
+            is_printed=True, printed_on=now, printed_by=user,
+        )
+        updated_invoices = Invoice.objects.filter(id__in=ids).select_related(
+            "customer", "created_by", "approved_by"
+        ).prefetch_related("items__product", "items__product_batch")
+        serializer = InvoiceSerializer(updated_invoices, many=True)
+        return BaseResponse(
+            message=f"{len(ids)} invoice(s) marked as printed",
+            data={"rows": serializer.data, "count": len(ids)},
+            status=200,
+        )
+
+    @staticmethod
+    def update_invoice_status(firm_slug, invoice_id, data, user):
+        try:
+            firm = Firm.objects.get(slug=firm_slug)
+        except Firm.DoesNotExist:
+            return BaseResponse(success=False, message="Firm not found", status=404)
+
+        new_status = data.get("status", "").strip()
+        if not new_status:
+            return BaseResponse(success=False, message="'status' is required", status=400)
+
+        valid_statuses = [c[0] for c in Invoice._meta.get_field("status").choices]
+        if new_status not in valid_statuses:
+            return BaseResponse(
+                success=False,
+                message=f"Invalid status '{new_status}'",
+                status=400,
+            )
+
+        with transaction.atomic():
+            try:
+                invoice = Invoice.objects.select_for_update().get(id=invoice_id, firm=firm)
+            except Invoice.DoesNotExist:
+                return BaseResponse(success=False, message="Invoice not found", status=404)
+
+            allowed = InvoiceService.VALID_STATUS_TRANSITIONS.get(invoice.status, [])
+            if new_status not in allowed:
+                return BaseResponse(
+                    success=False,
+                    message=f"Cannot transition from '{invoice.status}' to '{new_status}'. Allowed: {allowed}",
+                    status=400,
+                )
+
+            invoice.status = new_status
+            invoice.save(update_fields=["status", "updated_on"])
+
+        serializer = InvoiceSerializer(invoice)
+        return BaseResponse(
+            message=f"Invoice status updated to {new_status}",
+            data=serializer.data,
+            status=200,
+        )
+
     @staticmethod
     def preview_pricing(firm_slug, data):
         """
@@ -1224,16 +1489,13 @@ class InvoiceService:
         Expects: { customer: <id>, items: [ { product: <id>, quantity: <int> } ] }
         Returns per-item allocation breakdown with rates and totals.
         """
-        from .models import ProductBatch
-        from django.db.models import F
-
         try:
             firm = Firm.objects.get(slug=firm_slug)
         except Firm.DoesNotExist:
             return BaseResponse(success=False, message="Firm not found", status=404)
 
-        customer_id = data.get('customer')
-        items = data.get('items', [])
+        customer_id = data.get("customer")
+        items = data.get("items", [])
 
         if not customer_id:
             return BaseResponse(success=False, message="customer is required", status=400)
@@ -1244,11 +1506,11 @@ class InvoiceService:
             return BaseResponse(success=False, message="Customer not found", status=404)
 
         preview_items = []
-        grand_total = 0
+        grand_total = Decimal("0")
 
         for req_item in items:
-            product_id = req_item.get('product')
-            requested_quantity = req_item.get('quantity', 0)
+            product_id = req_item.get("product")
+            requested_quantity = req_item.get("quantity", 0)
 
             if not product_id or requested_quantity <= 0:
                 continue
@@ -1256,62 +1518,69 @@ class InvoiceService:
             try:
                 product = Product.objects.get(id=product_id, firm=firm)
             except Product.DoesNotExist:
-                return BaseResponse(success=False, message=f"Product {product_id} not found", status=404)
+                return BaseResponse(
+                    success=False, message=f"Product {product_id} not found", status=404
+                )
 
-            # Simulate FEFO without modifying inventory (we track simulated remaining)
+            rate = effective_unit_rate(product, customer)
             batches = list(
-                ProductBatch.objects.filter(
-                    product=product,
-                    quantity_remaining__gt=0
-                ).order_by(F('expiry_date').asc(nulls_last=True), 'created_on')
+                ProductBatch.objects.filter(product=product, quantity__gt=0).order_by(
+                    F("expiry_date").asc(nulls_last=True), "created_on"
+                )
             )
 
-            remaining_to_allocate = requested_quantity
+            remaining_to_allocate = int(requested_quantity)
             item_breakdown = []
-            item_total = 0
+            item_total = Decimal("0")
 
             for batch in batches:
                 if remaining_to_allocate <= 0:
                     break
 
-                qty_to_take = min(batch.quantity_remaining, remaining_to_allocate)
+                qty_to_take = min(batch.quantity, remaining_to_allocate)
                 remaining_to_allocate -= qty_to_take
 
-                rate = batch.selling_price_super_seller if customer.customer_type == 'SUPER_SELLER' else batch.selling_price_distributor
-                amount = qty_to_take * rate
+                amount = Decimal(qty_to_take) * rate
                 item_total += amount
 
-                item_breakdown.append({
-                    'batch_number': batch.batch_number,
-                    'expiry_date': batch.expiry_date.strftime('%Y-%m-%d') if batch.expiry_date else None,
-                    'quantity': qty_to_take,
-                    'rate': str(rate),
-                    'amount': str(amount),
-                })
+                exp = batch.expiry_date
+                item_breakdown.append(
+                    {
+                        "expiry_date": exp.isoformat() if exp else None,
+                        "quantity": qty_to_take,
+                        "rate": str(rate),
+                        "amount": str(amount),
+                    }
+                )
 
             if remaining_to_allocate > 0:
                 return BaseResponse(
                     success=False,
-                    message=f"Insufficient stock for '{product.name}'. Requested {requested_quantity}, available {requested_quantity - remaining_to_allocate}.",
-                    status=400
+                    message=(
+                        f"Insufficient stock for '{product.name}'. Requested {requested_quantity}, "
+                        f"available {requested_quantity - remaining_to_allocate}."
+                    ),
+                    status=400,
                 )
 
             grand_total += item_total
-            preview_items.append({
-                'product': str(product.id),
-                'product_name': product.name,
-                'requested_quantity': requested_quantity,
-                'estimated_total': str(item_total),
-                'batches': item_breakdown,
-            })
+            preview_items.append(
+                {
+                    "product": str(product.id),
+                    "product_name": product.name,
+                    "requested_quantity": requested_quantity,
+                    "estimated_total": str(item_total.quantize(Decimal("0.01"))),
+                    "batches": item_breakdown,
+                }
+            )
 
         return BaseResponse(
             data={
-                'items': preview_items,
-                'grand_total': str(grand_total),
-                'customer_type': customer.customer_type,
+                "items": preview_items,
+                "grand_total": str(grand_total.quantize(Decimal("0.01"))),
+                "customer_type": customer.customer_type,
             },
-            status=200
+            status=200,
         )
 
 class DashboardService:
@@ -1325,7 +1594,10 @@ class DashboardService:
             return BaseResponse(success=False, message="Firm not found", status=404)
 
         # Financial aggregates
-        cash_in = Invoice.objects.filter(firm=firm, status='APPROVED').aggregate(total=Sum('total_amount'))['total'] or 0
+        cash_in = Invoice.objects.filter(
+            firm=firm,
+            status__in=['APPROVED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'PARTIALLY_PAID', 'PAID', 'CLOSED'],
+        ).aggregate(total=Sum('total_amount'))['total'] or 0
         cash_out = VendorOrder.objects.filter(firm=firm, order_status__in=['RECEIVED', 'COMPLETED']).aggregate(total=Sum('total_amount'))['total'] or 0
         profit = float(cash_in) - float(cash_out)
 
@@ -1383,6 +1655,12 @@ class DashboardService:
                 "pending": invoice_stats.get('PENDING_APPROVAL', 0),
                 "approved": invoice_stats.get('APPROVED', 0),
                 "changes_requested": invoice_stats.get('CHANGES_REQUESTED', 0),
+                "out_for_delivery": invoice_stats.get('OUT_FOR_DELIVERY', 0),
+                "delivered": invoice_stats.get('DELIVERED', 0),
+                "partially_paid": invoice_stats.get('PARTIALLY_PAID', 0),
+                "paid": invoice_stats.get('PAID', 0),
+                "closed": invoice_stats.get('CLOSED', 0),
+                "cancelled": invoice_stats.get('CANCELLED', 0),
             },
             "order_stats": {
                 "pending": order_stats.get('PENDING', 0),
@@ -1397,7 +1675,9 @@ class DashboardService:
     @staticmethod
     def get_admin_dashboard_data():
         from django.db.models import Sum, Count
-        cash_in = Invoice.objects.filter(status='APPROVED').aggregate(total=Sum('total_amount'))['total'] or 0
+        cash_in = Invoice.objects.filter(
+            status__in=['APPROVED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'PARTIALLY_PAID', 'PAID', 'CLOSED'],
+        ).aggregate(total=Sum('total_amount'))['total'] or 0
         cash_out = VendorOrder.objects.filter(order_status__in=['RECEIVED', 'COMPLETED']).aggregate(total=Sum('total_amount'))['total'] or 0
         profit = float(cash_in) - float(cash_out)
 
@@ -1409,7 +1689,10 @@ class DashboardService:
         firms = Firm.objects.all()
         firm_breakdown = []
         for f in firms:
-            f_cash_in = Invoice.objects.filter(firm=f, status='APPROVED').aggregate(total=Sum('total_amount'))['total'] or 0
+            f_cash_in = Invoice.objects.filter(
+                firm=f,
+                status__in=['APPROVED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'PARTIALLY_PAID', 'PAID', 'CLOSED'],
+            ).aggregate(total=Sum('total_amount'))['total'] or 0
             f_cash_out = VendorOrder.objects.filter(firm=f, order_status__in=['RECEIVED', 'COMPLETED']).aggregate(total=Sum('total_amount'))['total'] or 0
             firm_breakdown.append({
                 "name": f.name,
@@ -1432,4 +1715,102 @@ class DashboardService:
             "firm_breakdown": firm_breakdown,
         }
         
+        return BaseResponse(data=data, status=200)
+
+
+class PaymentService:
+
+    @staticmethod
+    def list_payments(firm_slug, invoice_id):
+        try:
+            invoice = Invoice.objects.get(id=invoice_id, firm__slug=firm_slug)
+        except Invoice.DoesNotExist:
+            return BaseResponse(success=False, message="Invoice not found", status=404)
+        payments = invoice.payments.select_related("recorded_by").all()
+        serializer = PaymentSerializer(payments, many=True)
+        paid = payments.aggregate(s=Sum("amount"))["s"] or Decimal("0")
+        pending = max(Decimal("0"), (invoice.total_amount or Decimal("0")) - paid)
+        data = {
+            "rows": serializer.data,
+            "total_amount": str(invoice.total_amount),
+            "amount_paid": str(paid.quantize(Decimal("0.01"))),
+            "amount_pending": str(pending.quantize(Decimal("0.01"))),
+        }
+        return BaseResponse(data=data, status=200)
+
+    @staticmethod
+    def add_payment(firm_slug, invoice_id, data, user):
+        try:
+            invoice = Invoice.objects.get(id=invoice_id, firm__slug=firm_slug)
+        except Invoice.DoesNotExist:
+            return BaseResponse(success=False, message="Invoice not found", status=404)
+
+        serializer = PaymentCreateSerializer(data=data)
+        if not serializer.is_valid():
+            return BaseResponse(success=False, message="Invalid data", errors=serializer.errors, status=400)
+
+        vd = serializer.validated_data
+        paid_so_far = invoice.payments.aggregate(s=Sum("amount"))["s"] or Decimal("0")
+        total = invoice.total_amount or Decimal("0")
+        pending = total - paid_so_far
+        if vd["amount"] > pending:
+            return BaseResponse(
+                success=False,
+                message=f"Payment amount exceeds pending balance ({pending.quantize(Decimal('0.01'))}).",
+                status=400,
+            )
+
+        payment = Payment.objects.create(
+            invoice=invoice,
+            amount=vd["amount"],
+            mode=vd["mode"],
+            reference=vd.get("reference", ""),
+            note=vd.get("note", ""),
+            paid_on=vd["paid_on"],
+            recorded_by=user,
+        )
+        return BaseResponse(
+            message="Payment recorded",
+            data=PaymentSerializer(payment).data,
+            status=201,
+        )
+
+    @staticmethod
+    def customer_outstanding(firm_slug, customer_id):
+        try:
+            customer = Customer.objects.get(id=customer_id, firm__slug=firm_slug)
+        except Customer.DoesNotExist:
+            return BaseResponse(success=False, message="Customer not found", status=404)
+
+        invoices = Invoice.objects.filter(
+            customer=customer,
+            status__in=[
+                "PENDING_APPROVAL", "APPROVED", "OUT_FOR_DELIVERY",
+                "DELIVERED", "PARTIALLY_PAID",
+            ],
+        ).prefetch_related("payments")
+
+        rows = []
+        total_outstanding = Decimal("0")
+        for inv in invoices:
+            paid = inv.payments.aggregate(s=Sum("amount"))["s"] or Decimal("0")
+            pending = max(Decimal("0"), (inv.total_amount or Decimal("0")) - paid)
+            total_outstanding += pending
+            if pending > 0:
+                rows.append({
+                    "invoice_id": str(inv.id),
+                    "invoice_number": inv.invoice_number,
+                    "total_amount": str(inv.total_amount),
+                    "amount_paid": str(paid.quantize(Decimal("0.01"))),
+                    "amount_pending": str(pending.quantize(Decimal("0.01"))),
+                    "status": inv.status,
+                    "created_on": inv.created_on.isoformat() if inv.created_on else None,
+                })
+
+        data = {
+            "customer_id": str(customer.id),
+            "business_name": customer.business_name,
+            "total_outstanding": str(total_outstanding.quantize(Decimal("0.01"))),
+            "invoices": rows,
+        }
         return BaseResponse(data=data, status=200)

@@ -90,6 +90,31 @@ const InvoicesPage = () => {
             ),
         },
         {
+            id: "payment_status",
+            header: "Payment",
+            cell: ({ row }) => {
+                const ps = row.original.payment_status;
+                const pending = Number(row.original.amount_pending ?? 0);
+                const cfg: Record<string, string> = {
+                    PAID: "bg-green-100 text-green-800",
+                    PARTIAL: "bg-amber-100 text-amber-800",
+                    UNPAID: "bg-red-100 text-red-800",
+                };
+                return (
+                    <div className="flex flex-col gap-0.5">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium inline-block w-fit ${cfg[ps] ?? "bg-gray-100 text-gray-800"}`}>
+                            {ps === "PAID" ? "Paid" : ps === "PARTIAL" ? "Partial" : "Unpaid"}
+                        </span>
+                        {pending > 0 && (
+                            <span className="text-xs text-red-600">
+                                Due: ₹{pending.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                            </span>
+                        )}
+                    </div>
+                );
+            },
+        },
+        {
             accessorKey: "created_on",
             header: "Created On",
             cell: ({ row }) => (

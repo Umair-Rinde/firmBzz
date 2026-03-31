@@ -17,6 +17,11 @@ export default function RetailerConfigPage() {
 
   const columns: ColumnDef<any>[] = [
     {
+      header: "Code",
+      accessorKey: "reference_code",
+      cell: ({ row }) => row.original.reference_code || "—",
+    },
+    {
       header: "Business Name",
       accessorKey: "business_name",
     },
@@ -68,7 +73,7 @@ export default function RetailerConfigPage() {
               endPoint={`/firm/${cookies.firm}/customers/${row.original.id}/`}
               itemName={`${row?.original?.business_name}`}
               title="Delete Retailer"
-              refetchUrl={[`firm/${cookies.firm}/customers/`]}
+              refetchUrl={[`/firm/${cookies.firm}/customers/`]}
             />
           </div>
         );
@@ -90,7 +95,7 @@ export default function RetailerConfigPage() {
       <Datagrid
         columns={columns}
         title="Retailers"
-        url={`firm/${cookies.firm}/customers/`}
+        url={`/firm/${cookies.firm}/customers/`}
         extraButtons={
           <CustomButton onClick={() => setOpen(true)}>
             Add Retailer <FaPlus />

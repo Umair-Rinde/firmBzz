@@ -4,32 +4,105 @@ import { Datagrid } from "@/components/ui/custom/datgrid";
 import { DeleteItem } from "@/components/ui/custom/delete-dialog";
 import { UserInterface } from "@/interfaces/user";
 import { ColumnDef } from "@tanstack/react-table";
-import React, { useState } from "react";
+import { useState } from "react";
 import { FaPlus } from "react-icons/fa";
 import { LuPen } from "react-icons/lu";
 import UserDrawer from "./components/user-form";
 
+const ROLE_COLORS: Record<string, string> = {
+  FIRM_ADMIN: "bg-blue-100 text-blue-800",
+  FIRM_USER: "bg-gray-100 text-gray-800",
+  SUPERSELLER_USER: "bg-purple-100 text-purple-800",
+  DISTRIBUTOR_USER: "bg-amber-100 text-amber-800",
+  SALES_PERSON: "bg-teal-100 text-teal-800",
+};
+
+const ROLE_LABELS: Record<string, string> = {
+  FIRM_ADMIN: "Firm Admin",
+  FIRM_USER: "Firm User",
+  SUPERSELLER_USER: "Super Seller",
+  DISTRIBUTOR_USER: "Distributor",
+  SALES_PERSON: "Sales Person",
+};
+
 const UserConfig = () => {
+  const [open, setOpen] = useState(false);
+  const [selectedRow, setSelectedRow] = useState<UserInterface | null>(null);
+
   const columns: ColumnDef<UserInterface>[] = [
     {
       header: "Full Name",
       accessorKey: "full_name",
     },
     {
-      header: "Gender",
-      accessorKey: "gender",
+      header: "Email",
+      accessorKey: "email",
     },
     {
-      header: "State",
-      accessorKey: "state",
+      header: "Phone",
+      accessorKey: "phone",
     },
     {
-      header: "City",
-      accessorKey: "city",
+      header: "User Type",
+      accessorKey: "user_type",
+      cell: ({ row }) => {
+        const type = row.original.user_type;
+        const isAdmin = type === "ADMIN";
+        return (
+          <span
+            className={`px-2 py-1 rounded-full text-xs font-medium ${
+              isAdmin
+                ? "bg-red-100 text-red-800"
+                : "bg-indigo-100 text-indigo-800"
+            }`}
+          >
+            {isAdmin ? "Admin" : "Firm User"}
+          </span>
+        );
+      },
     },
     {
-      header: "Pincode",
-      accessorKey: "pincode",
+      header: "Firms & Roles",
+      accessorKey: "firms",
+      cell: ({ row }) => {
+        const firms = row.original.firms || [];
+        if (!firms.length) {
+          return <span className="text-gray-400 text-xs italic">No firm assigned</span>;
+        }
+        return (
+          <div className="flex flex-wrap gap-1">
+            {firms.map((f) => (
+              <span
+                key={f.id}
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                  ROLE_COLORS[f.role] || "bg-gray-100 text-gray-700"
+                }`}
+              >
+                {f.name}
+                <span className="opacity-60">({ROLE_LABELS[f.role] || f.role})</span>
+              </span>
+            ))}
+          </div>
+        );
+      },
+    },
+    {
+      header: "Status",
+      accessorKey: "is_active",
+      cell: ({ row }) => {
+        const active = row.original.is_active;
+        return (
+          <span
+            className={`px-2 py-1 rounded-full text-xs font-medium ${
+              active
+                ? "bg-green-100 text-green-800"
+                : "bg-red-100 text-red-800"
+            }`}
+          >
+            {active ? "Active" : "Inactive"}
+          </span>
+        );
+      },
     },
     {
       header: "Action",
@@ -59,22 +132,29 @@ const UserConfig = () => {
     },
   ];
 
-  const [open, setOpen] = useState(false);
-  const [selectedRow, setSelectedRow] = useState<UserInterface | null>(null);
-
   const handleClose = () => {
     setOpen(false);
+    setSelectedRow(null);
   };
+
   return (
     <div className="mt-[150px]">
-      <AppBar title="User" subTitle={`Create , Update and Delete Users`} />
+      <AppBar
+        title="User Management"
+        subTitle="Create, update and manage users across all firms."
+      />
       <Datagrid
         columns={columns}
         title="Users"
         url="/accounts/list/get/"
         extraButtons={
-          <CustomButton onClick={() => setOpen(true)}>
-            Add user <FaPlus />
+          <CustomButton
+            onClick={() => {
+              setSelectedRow(null);
+              setOpen(true);
+            }}
+          >
+            Add User <FaPlus />
           </CustomButton>
         }
       />

@@ -1,5 +1,17 @@
 from django.contrib import admin
-from .models import Firm, Product, Customer, Vendor, ProductBatch, VendorOrder, VendorOrderItem
+from .models import (
+    Firm,
+    Product,
+    Customer,
+    Vendor,
+    ProductBatch,
+    VendorOrder,
+    VendorOrderItem,
+    RetailerOrder,
+    RetailerOrderItem,
+    Invoice,
+    Payment,
+)
 
 
 @admin.register(Firm)
@@ -14,30 +26,33 @@ class FirmAdmin(admin.ModelAdmin):
 class ProductBatchInline(admin.TabularInline):
     model = ProductBatch
     extra = 0
-    readonly_fields = ['slug', 'created_on']
-    fields = ['vendor', 'batch_number', 'received_date', 'quantity_received', 'quantity_remaining',
-              'cost_price', 'selling_price_super_seller', 'selling_price_distributor', 'expiry_date']
+    readonly_fields = ["created_on"]
+    fields = ["quantity", "expiry_date", "created_on"]
 
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ['name', 'firm', 'slug', 'hsn_code', 'created_on']
-    list_filter = ['firm', 'created_on', 'category']
-    search_fields = ['name', 'hsn_code', 'slug']
-    readonly_fields = ['slug', 'created_on', 'updated_on']
-    ordering = ['-created_on']
+    list_display = [
+        "name",
+        "firm",
+        "category",
+        "hsn_code",
+        "gst_percent",
+        "mrp",
+        "sale_rate",
+        "is_active",
+        "created_on",
+    ]
+    list_filter = ["firm", "created_on", "category", "is_active"]
+    search_fields = ["name", "hsn_code", "slug", "product_code"]
+    readonly_fields = ["slug", "created_on", "updated_on"]
+    ordering = ["-created_on"]
     inlines = [ProductBatchInline]
     fieldsets = (
-        ('Basic Information', {
-            'fields': ('firm', 'name', 'slug', 'description', 'image')
-        }),
-        ('Product Details', {
-            'fields': ('hsn_code', 'category')
-        }),
-        ('Timestamps', {
-            'fields': ('created_on', 'updated_on'),
-            'classes': ('collapse',)
-        }),
+        ("Basic", {"fields": ("firm", "name", "slug", "description", "image", "category", "is_active")}),
+        ("Tax & pack", {"fields": ("hsn_code", "gst_percent", "liters", "pack")}),
+        ("Rates (Excel)", {"fields": ("mrp", "purchase_rate", "purchase_rate_per_unit", "sale_rate", "rate_per_unit", "product_discount")}),
+        ("Timestamps", {"fields": ("created_on", "updated_on"), "classes": ("collapse",)}),
     )
     
     def get_queryset(self, request):
@@ -47,34 +62,30 @@ class ProductAdmin(admin.ModelAdmin):
 
 @admin.register(ProductBatch)
 class ProductBatchAdmin(admin.ModelAdmin):
-    list_display = ['product', 'batch_number', 'vendor', 'received_date', 'quantity_remaining', 
-                    'cost_price', 'selling_price_distributor', 'expiry_date']
-    list_filter = ['vendor', 'product__firm', 'received_date', 'expiry_date']
-    search_fields = ['product__name', 'batch_number', 'vendor__vendor_name', 'slug']
-    readonly_fields = ['slug', 'created_on', 'updated_on']
-    ordering = ['-received_date']
-    fieldsets = (
-        ('Product & Vendor', {
-            'fields': ('product', 'vendor', 'slug')
-        }),
-        ('Batch Details', {
-            'fields': ('batch_number', 'manufacturing_date', 'expiry_date')
-        }),
-        ('Receipt Information', {
-            'fields': ('received_date', 'quantity_received', 'quantity_remaining')
-        }),
-        ('Pricing', {
-            'fields': ('cost_price', 'selling_price_super_seller', 'selling_price_distributor')
-        }),
-        ('Timestamps', {
-            'fields': ('created_on', 'updated_on'),
-            'classes': ('collapse',)
-        }),
-    )
+    list_display = ["product", "quantity", "expiry_date", "created_on"]
+    list_filter = ["product__firm", "expiry_date"]
+    search_fields = ["product__name"]
+    readonly_fields = ["created_on", "updated_on"]
+    ordering = ["expiry_date", "-created_on"]
     
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        return qs.select_related('product', 'vendor', 'product__firm')
+        return qs.select_related("product", "product__firm")
+
+
+class RetailerOrderItemInline(admin.TabularInline):
+    model = RetailerOrderItem
+    extra = 0
+    readonly_fields = ["created_on"]
+
+
+@admin.register(RetailerOrder)
+class RetailerOrderAdmin(admin.ModelAdmin):
+    list_display = ["id", "firm", "customer", "status", "created_by", "created_on"]
+    list_filter = ["firm", "status", "created_on"]
+    search_fields = ["customer__business_name", "reference", "notes"]
+    inlines = [RetailerOrderItemInline]
+    raw_id_fields = ["customer", "created_by"]
 
 
 @admin.register(Customer)
@@ -205,3 +216,26 @@ class VendorOrderItemAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         return qs.select_related('order', 'product', 'order__firm', 'order__vendor', 'product_batch')
+
+
+class PaymentInline(admin.TabularInline):
+    model = Payment
+    extra = 0
+    readonly_fields = ["created_on", "recorded_by"]
+    fields = ["amount", "mode", "reference", "note", "paid_on", "recorded_by", "created_on"]
+
+
+@admin.register(Invoice)
+class InvoiceAdmin(admin.ModelAdmin):
+    list_display = ["id", "invoice_number", "customer", "firm", "total_amount", "status", "created_on"]
+    list_filter = ["firm", "status", "created_on"]
+    search_fields = ["invoice_number", "customer__business_name"]
+    inlines = [PaymentInline]
+
+
+@admin.register(Payment)
+class PaymentAdmin(admin.ModelAdmin):
+    list_display = ["id", "invoice", "amount", "mode", "paid_on", "recorded_by", "created_on"]
+    list_filter = ["mode", "paid_on"]
+    search_fields = ["invoice__invoice_number", "reference"]
+    readonly_fields = ["created_on"]

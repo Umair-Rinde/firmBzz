@@ -21,6 +21,10 @@ urlpatterns = [
     path('<slug:slug>/customers/', routes.CustomerListCreateAPIView.as_view()),
     path('<slug:slug>/customers/<uuid:customer_id>/', routes.CustomerDetailAPIView.as_view()),
 
+    # Salesman → retailer orders (bundled into invoice by firm admin)
+    path('<slug:slug>/retailer-orders/', routes.RetailerOrderListCreateAPIView.as_view()),
+    path('<slug:slug>/retailer-orders/<uuid:order_id>/', routes.RetailerOrderDetailAPIView.as_view()),
+
     # Vendor Order URLs
     path('<slug:slug>/vendor-orders/', routes.VendorOrderListCreateAPIView.as_view()),
     path('<slug:slug>/vendor-orders/bulk-import/', routes.VendorOrderBulkImportAPIView.as_view()),
@@ -33,6 +37,13 @@ urlpatterns = [
     path('<slug:slug>/invoices/<uuid:invoice_id>/', routes.InvoiceDetailAPIView.as_view()),
     path('<slug:slug>/invoices/<uuid:invoice_id>/approve/', routes.InvoiceApproveAPIView.as_view()),
     path('<slug:slug>/invoices/<uuid:invoice_id>/request-changes/', routes.InvoiceRequestChangesAPIView.as_view()),
+    path('<slug:slug>/invoices/<uuid:invoice_id>/print/', routes.InvoicePrintAPIView.as_view()),
+    path('<slug:slug>/invoices/<uuid:invoice_id>/update-status/', routes.InvoiceStatusUpdateAPIView.as_view()),
+    path('<slug:slug>/invoices/batch-print/', routes.InvoiceBatchPrintAPIView.as_view()),
+
+    # Payments
+    path('<slug:slug>/invoices/<uuid:invoice_id>/payments/', routes.InvoicePaymentListCreateAPIView.as_view()),
+    path('<slug:slug>/customers/<uuid:customer_id>/outstanding/', routes.CustomerOutstandingAPIView.as_view()),
 
     # Dashboard URLs
     path('dashboard/admin/', routes.AdminDashboardAPIView.as_view()),

@@ -1,7 +1,26 @@
+from decimal import Decimal
+
 from rest_framework import serializers
-from .models import Firm, Product, Customer, Vendor, ProductBatch, VendorOrder, VendorOrderItem, Invoice, InvoiceItem
+from rest_framework.exceptions import ValidationError
+
+from .models import (
+    Firm,
+    Product,
+    Customer,
+    Vendor,
+    ProductBatch,
+    VendorOrder,
+    VendorOrderItem,
+    Invoice,
+    InvoiceItem,
+    RetailerOrder,
+    RetailerOrderItem,
+    Payment,
+)
 from accounts.models import User, FirmUsers
 from accounts.choices import UserTypeChoices
+from .choices import RetailerOrderStatusChoices, PaymentModeChoices
+from .pricing import effective_unit_rate, allocate_batches_fefo
 
 class FirmSerializer(serializers.ModelSerializer):
     class Meta:
@@ -11,56 +30,107 @@ class FirmSerializer(serializers.ModelSerializer):
 
 class ProductSerializer(serializers.ModelSerializer):
     available_quantity = serializers.SerializerMethodField()
+    scheme_free_product_name = serializers.SerializerMethodField()
     
     class Meta:
         model = Product
         fields = [
-            "id", "name", "slug", "description", "hsn_code", "image",
-            "category", "firm", "created_on", "available_quantity"
+            "id",
+            "product_code",
+            "name",
+            "slug",
+            "description",
+            "category",
+            "hsn_code",
+            "gst_percent",
+            "liters",
+            "pack",
+            "mrp",
+            "purchase_rate",
+            "purchase_rate_per_unit",
+            "sale_rate",
+            "rate_per_unit",
+            "product_discount",
+            "no_discount",
+            "scheme_type",
+            "scheme_buy_qty",
+            "scheme_free_qty",
+            "scheme_free_product",
+            "scheme_free_product_name",
+            "scheme_discount_percent",
+            "is_active",
+            "image",
+            "firm",
+            "created_on",
+            "available_quantity",
         ]
-        read_only_fields = ["slug", "firm", "created_on", "available_quantity"]
+        read_only_fields = ["slug", "firm", "created_on", "available_quantity", "scheme_free_product_name"]
 
     def get_available_quantity(self, obj):
         from django.db.models import Sum
-        total = obj.batches.aggregate(Sum('quantity_remaining'))['quantity_remaining__sum']
+        total = obj.batches.aggregate(Sum("quantity"))["quantity__sum"]
         return total if total is not None else 0
+
+    def get_scheme_free_product_name(self, obj):
+        fp = obj.scheme_free_product
+        if fp and fp.id != obj.id:
+            code = f"[{fp.product_code}] " if fp.product_code else ""
+            return f"{code}{fp.name}"
+        return None
 
 
 class ProductBatchSerializer(serializers.ModelSerializer):
-    product_name = serializers.CharField(source='product.name', read_only=True)
-    vendor_name = serializers.CharField(source='vendor.vendor_name', read_only=True)
-    
+    product_name = serializers.CharField(source="product.name", read_only=True)
+
     class Meta:
         model = ProductBatch
         fields = [
-            "id", "product", "product_name", "vendor", "vendor_name", "slug",
-            "batch_number", "manufacturing_date", "expiry_date",
-            "received_date", "quantity_received", "quantity_remaining",
-            "cost_price", "selling_price_super_seller", "selling_price_distributor",
-            "created_on"
+            "id",
+            "product",
+            "product_name",
+            "quantity",
+            "expiry_date",
+            "created_on",
         ]
-        read_only_fields = ["slug", "created_on"]
+        read_only_fields = ["created_on"]
 
 
 class CustomerSerializer(serializers.ModelSerializer):
     customer_type_display = serializers.CharField(source='get_customer_type_display', read_only=True)
+    outstanding_balance = serializers.SerializerMethodField()
     
     class Meta:
         model = Customer
         fields = [
             "id", "firm", "slug", "customer_type", "customer_type_display",
+            "reference_code",
             "business_name", "owner_name", "fssai_number", "fssai_document", "gst_number",
             "fssai_expiry", "gst_expiry", "whatsapp_number", "contact_number",
-            "business_address", "email", "is_active", "created_on"
+            "business_address", "email", "is_active", "created_on",
+            "outstanding_balance",
         ]
-        read_only_fields = ["slug", "firm", "created_on"]
+        read_only_fields = ["slug", "firm", "created_on", "outstanding_balance"]
+
+    def get_outstanding_balance(self, obj):
+        from django.db.models import Sum, DecimalField, Value
+        from django.db.models.functions import Coalesce
+        agg = obj.invoices.filter(
+            status__in=[
+                "PENDING_APPROVAL", "APPROVED", "OUT_FOR_DELIVERY",
+                "DELIVERED", "PARTIALLY_PAID",
+            ],
+        ).aggregate(
+            total_invoiced=Coalesce(Sum("total_amount"), Value(0), output_field=DecimalField()),
+            total_paid=Coalesce(Sum("payments__amount"), Value(0), output_field=DecimalField()),
+        )
+        return str((agg["total_invoiced"] - agg["total_paid"]).quantize(Decimal("0.01")))
 
 
 class VendorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Vendor
         fields = [
-            "id", "firm", "slug", "vendor_name", "owner_name", "gst_number",
+            "id", "firm", "slug", "reference_code", "vendor_name", "owner_name", "gst_number",
             "gst_expiry", "whatsapp_number", "telephone_number", "address",
             "bank_account_number", "ifsc_code", "email", "created_on"
         ]
@@ -252,173 +322,413 @@ class FirmUserUpdateSerializer(serializers.ModelSerializer):
         instance.save()
         return instance
 
-class InvoiceItemSerializer(serializers.ModelSerializer):
-    """Read-only: serializes InvoiceItem for display, including batch info and amount."""
-    product_name = serializers.CharField(source='product.name', read_only=True)
-    batch_number = serializers.CharField(source='product_batch.batch_number', read_only=True, default='')
-    amount = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
-    
+
+class RetailerOrderItemSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source="product.name", read_only=True)
+
     class Meta:
-        model = InvoiceItem
+        model = RetailerOrderItem
         fields = [
-            "id", "product", "product_name", "product_batch", "batch_number", "quantity", "rate", "amount", "created_on"
+            "id",
+            "product",
+            "product_name",
+            "quantity",
+            "rate",
+            "applied_discount_percent",
+            "scheme_applied",
+            "created_on",
         ]
-        read_only_fields = ["created_on", "amount", "rate", "product_batch", "batch_number", "product_name"]
+        read_only_fields = ["rate", "created_on"]
 
 
-class InvoiceItemInputSerializer(serializers.Serializer):
-    """Write-only: accepts just product + quantity; rate is determined via FEFO on the backend."""
+class RetailerOrderItemWriteSerializer(serializers.Serializer):
     product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
     quantity = serializers.IntegerField(min_value=1)
+    applied_discount_percent = serializers.DecimalField(
+        max_digits=5, decimal_places=2, required=False, default=0
+    )
+    scheme_applied = serializers.JSONField(required=False, default=dict)
 
 
-class InvoiceSerializer(serializers.ModelSerializer):
-    customer_name = serializers.CharField(source='customer.business_name', read_only=True)
-    customer_type = serializers.CharField(source='customer.customer_type', read_only=True)
-    status_display = serializers.CharField(source='get_status_display', read_only=True)
-    created_by_name = serializers.CharField(source='created_by.full_name', read_only=True, default='')
-    approved_by_name = serializers.CharField(source='approved_by.full_name', read_only=True, default='')
-    items = InvoiceItemSerializer(many=True, read_only=True)
-    
+class RetailerOrderSerializer(serializers.ModelSerializer):
+    customer_name = serializers.CharField(source="customer.business_name", read_only=True)
+    items = RetailerOrderItemSerializer(many=True, read_only=True)
+    created_by_name = serializers.CharField(
+        source="created_by.full_name", read_only=True, default=""
+    )
+
     class Meta:
-        model = Invoice
+        model = RetailerOrder
         fields = [
-            "id", "firm", "customer", "customer_name", "customer_type", "slug", 
-            "invoice_number", "total_amount", "status", "status_display", 
-            "rejection_note", "created_by", "created_by_name", "approved_by", 
-            "approved_by_name", "items", "created_on"
+            "id",
+            "firm",
+            "customer",
+            "customer_name",
+            "status",
+            "reference",
+            "notes",
+            "created_by",
+            "created_by_name",
+            "items",
+            "created_on",
         ]
-        read_only_fields = ["slug", "firm", "created_on", "invoice_number", "total_amount", "created_by", "approved_by", "status", "rejection_note"]
+        read_only_fields = ["firm", "created_by", "created_on", "status"]
 
 
-class InvoiceCreateUpdateSerializer(serializers.ModelSerializer):
-    items = InvoiceItemInputSerializer(many=True)
-    
+class RetailerOrderCreateSerializer(serializers.ModelSerializer):
+    items = RetailerOrderItemWriteSerializer(many=True)
+
     class Meta:
-        model = Invoice
-        fields = [
-            "customer", "items"
-        ]
-    
-    def _allocate_batches(self, product, requested_quantity, customer):
-        from .models import ProductBatch
-        from django.db.models import F
-        from rest_framework.exceptions import ValidationError
-        
-        # Order by expiry date (nulls last) and then created_on
-        batches = ProductBatch.objects.filter(
-            product=product, 
-            quantity_remaining__gt=0
-        ).order_by(F('expiry_date').asc(nulls_last=True), 'created_on')
-        
-        allocations = []
-        remaining_to_allocate = requested_quantity
-        
-        for batch in batches:
-            if remaining_to_allocate <= 0:
-                break
-                
-            qty_to_take = min(batch.quantity_remaining, remaining_to_allocate)
-            remaining_to_allocate -= qty_to_take
-            batch.quantity_remaining -= qty_to_take
-            
-            # Decide rate based on customer type
-            rate = batch.selling_price_super_seller if customer.customer_type == 'SUPER_SELLER' else batch.selling_price_distributor
-            
-            allocations.append({
-                'batch': batch,
-                'quantity': qty_to_take,
-                'rate': rate
-            })
-            
-        if remaining_to_allocate > 0:
-            raise ValidationError(f"Insufficient stock for {product.name}. Required {requested_quantity}, only {requested_quantity - remaining_to_allocate} available.")
-            
-        return allocations
+        model = RetailerOrder
+        fields = ["customer", "reference", "notes", "items"]
 
     def create(self, validated_data):
         from django.db import transaction
-        
-        items_data = validated_data.pop('items')
-        customer = validated_data.get('customer')
-        
-        user = self.context.get('request_user')
-        if user:
-            validated_data['created_by'] = user
-            
+
+        items_data = validated_data.pop("items")
+        firm = self.context["firm"]
+        user = self.context.get("request_user")
+        customer = validated_data["customer"]
+        if customer.firm_id != firm.id:
+            raise ValidationError("Customer does not belong to this firm.")
+
         with transaction.atomic():
-            invoice = Invoice.objects.create(**validated_data)
-            
-            total_amount = 0
-            
-            # For each requested item, allocate from batches
-            for item_data in items_data:
-                product = item_data['product']
-                requested_quantity = item_data['quantity']
-                
-                allocations = self._allocate_batches(product, requested_quantity, customer)
-                
-                for alloc in allocations:
-                    batch = alloc['batch']
-                    batch.save() # save the deducted quantity
-                    
-                    item = InvoiceItem.objects.create(
-                        invoice=invoice, 
+            order = RetailerOrder.objects.create(
+                firm=firm,
+                customer=customer,
+                created_by=user,
+                status=RetailerOrderStatusChoices.SUBMITTED,
+                reference=validated_data.get("reference"),
+                notes=validated_data.get("notes"),
+            )
+            for row in items_data:
+                product = row["product"]
+                if product.firm_id != firm.id:
+                    raise ValidationError("Product does not belong to this firm.")
+                rate = effective_unit_rate(product, customer)
+                RetailerOrderItem.objects.create(
+                    order=order,
+                    product=product,
+                    quantity=row["quantity"],
+                    rate=rate,
+                    applied_discount_percent=row.get(
+                        "applied_discount_percent", Decimal("0")
+                    ),
+                    scheme_applied=row.get("scheme_applied") or {},
+                )
+            return order
+
+
+class InvoiceItemSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source="product.name", read_only=True)
+    batch_expiry = serializers.DateField(
+        source="product_batch.expiry_date", read_only=True, allow_null=True
+    )
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = InvoiceItem
+        fields = [
+            "id",
+            "product",
+            "product_name",
+            "product_batch",
+            "batch_expiry",
+            "quantity",
+            "free_quantity",
+            "rate",
+            "discount_percent",
+            "gst_percent",
+            "line_total",
+            "amount",
+            "created_on",
+        ]
+        read_only_fields = [
+            "created_on",
+            "amount",
+            "rate",
+            "product_batch",
+            "product_name",
+            "batch_expiry",
+            "free_quantity",
+            "discount_percent",
+            "gst_percent",
+            "line_total",
+        ]
+
+
+class InvoiceSerializer(serializers.ModelSerializer):
+    customer_name = serializers.CharField(source="customer.business_name", read_only=True)
+    customer_type = serializers.CharField(source="customer.customer_type", read_only=True)
+    customer_reference_code = serializers.CharField(
+        source="customer.reference_code", read_only=True, allow_null=True
+    )
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    created_by_name = serializers.CharField(
+        source="created_by.full_name", read_only=True, default=""
+    )
+    approved_by_name = serializers.CharField(
+        source="approved_by.full_name", read_only=True, default=""
+    )
+    printed_by_name = serializers.CharField(
+        source="printed_by.full_name", read_only=True, default=""
+    )
+    items = InvoiceItemSerializer(many=True, read_only=True)
+    source_retailer_order_ids = serializers.SerializerMethodField()
+    amount_paid = serializers.SerializerMethodField()
+    amount_pending = serializers.SerializerMethodField()
+    payment_status = serializers.SerializerMethodField()
+    payments = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Invoice
+        fields = [
+            "id",
+            "firm",
+            "customer",
+            "customer_name",
+            "customer_type",
+            "customer_reference_code",
+            "slug",
+            "invoice_number",
+            "total_amount",
+            "amount_paid",
+            "amount_pending",
+            "payment_status",
+            "status",
+            "status_display",
+            "rejection_note",
+            "created_by",
+            "created_by_name",
+            "approved_by",
+            "approved_by_name",
+            "is_printed",
+            "printed_on",
+            "printed_by",
+            "printed_by_name",
+            "source_retailer_order_ids",
+            "items",
+            "payments",
+            "created_on",
+        ]
+        read_only_fields = [
+            "slug",
+            "firm",
+            "created_on",
+            "invoice_number",
+            "total_amount",
+            "created_by",
+            "approved_by",
+            "status",
+            "rejection_note",
+            "is_printed",
+            "printed_on",
+            "printed_by",
+        ]
+
+    def get_source_retailer_order_ids(self, obj):
+        return [str(x.id) for x in obj.source_orders.all()]
+
+    def _paid(self, obj):
+        if not hasattr(obj, "_cached_paid"):
+            from django.db.models import Sum
+            obj._cached_paid = obj.payments.aggregate(s=Sum("amount"))["s"] or Decimal("0")
+        return obj._cached_paid
+
+    def get_amount_paid(self, obj):
+        return str(self._paid(obj).quantize(Decimal("0.01")))
+
+    def get_amount_pending(self, obj):
+        pending = (obj.total_amount or Decimal("0")) - self._paid(obj)
+        return str(max(Decimal("0"), pending).quantize(Decimal("0.01")))
+
+    def get_payment_status(self, obj):
+        paid = self._paid(obj)
+        total = obj.total_amount or Decimal("0")
+        if paid <= 0:
+            return "UNPAID"
+        if paid >= total:
+            return "PAID"
+        return "PARTIAL"
+
+    def get_payments(self, obj):
+        from .serializers import PaymentSerializer
+        return PaymentSerializer(obj.payments.all(), many=True).data
+
+
+class InvoiceLineOverrideSerializer(serializers.Serializer):
+    product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
+    quantity = serializers.IntegerField(min_value=1)
+    discount_percent = serializers.DecimalField(max_digits=5, decimal_places=2, required=False, default=0)
+    include_scheme = serializers.BooleanField(required=False, default=True)
+    free_quantity = serializers.IntegerField(min_value=0, required=False, default=0)
+
+
+class InvoiceFromRetailerOrdersSerializer(serializers.Serializer):
+    """
+    Firm admin: attach one or more SUBMITTED retailer orders (same customer) → invoice.
+    Optional `line_items` overrides let the admin adjust quantities, discounts,
+    add/remove products, and toggle schemes before the invoice is finalised.
+    """
+
+    retailer_order_ids = serializers.ListField(
+        child=serializers.UUIDField(), min_length=1
+    )
+    line_items = InvoiceLineOverrideSerializer(many=True, required=False)
+
+    def validate_retailer_order_ids(self, ids):
+        unique_ids = list(dict.fromkeys(ids))
+        if len(unique_ids) != len(ids):
+            raise ValidationError("Duplicate order ids in request.")
+        orders = list(RetailerOrder.objects.filter(id__in=unique_ids))
+        if len(orders) != len(unique_ids):
+            raise ValidationError("One or more retailer orders were not found.")
+        firm = self.context["firm"]
+        customers = {o.customer_id for o in orders}
+        if len(customers) != 1:
+            raise ValidationError(
+                "All selected orders must belong to the same retailer (customer)."
+            )
+        for o in orders:
+            if o.firm_id != firm.id:
+                raise ValidationError("Order does not belong to this firm.")
+            if o.status != RetailerOrderStatusChoices.SUBMITTED:
+                raise ValidationError(
+                    f"Order {o.id} must be in SUBMITTED status (got {o.status})."
+                )
+        return ids
+
+    def validate_line_items(self, items):
+        if not items:
+            return items
+        firm = self.context["firm"]
+        for item in items:
+            product = item["product"]
+            if product.firm_id != firm.id:
+                raise ValidationError(f"Product {product.name} does not belong to this firm.")
+            if product.no_discount and Decimal(str(item.get("discount_percent", 0))) > 0:
+                raise ValidationError(
+                    f"Product '{product.name}' has no_discount enabled — discount must be 0."
+                )
+        return items
+
+    def create(self, validated_data):
+        from django.db import transaction
+
+        firm = self.context["firm"]
+        user = self.context.get("request_user")
+        ids = list(dict.fromkeys(validated_data["retailer_order_ids"]))
+        orders = list(
+            RetailerOrder.objects.filter(id__in=ids)
+            .select_related("customer")
+            .prefetch_related("items__product")
+        )
+        customer = orders[0].customer
+        overrides = validated_data.get("line_items")
+
+        if overrides:
+            lines_to_invoice = []
+            for ov in overrides:
+                product = ov["product"]
+                qty = ov["quantity"]
+                disc = Decimal(str(ov.get("discount_percent", 0)))
+                if product.no_discount:
+                    disc = Decimal("0")
+                include_scheme = ov.get("include_scheme", True)
+                free_qty = ov.get("free_quantity", 0) if include_scheme else 0
+                rate = effective_unit_rate(product, customer)
+                lines_to_invoice.append({
+                    "product": product,
+                    "quantity": qty,
+                    "rate": rate,
+                    "discount_percent": disc,
+                    "free_quantity": free_qty,
+                    "gst_percent": product.gst_percent,
+                })
+        else:
+            lines_to_invoice = []
+            for ro in orders:
+                for line in ro.items.all():
+                    lines_to_invoice.append({
+                        "product": line.product,
+                        "quantity": line.quantity,
+                        "rate": line.rate,
+                        "discount_percent": line.applied_discount_percent,
+                        "free_quantity": 0,
+                        "gst_percent": line.product.gst_percent,
+                    })
+
+        with transaction.atomic():
+            invoice = Invoice.objects.create(
+                firm=firm,
+                customer=customer,
+                created_by=user,
+                total_amount=Decimal("0"),
+            )
+            invoice.source_orders.set(orders)
+
+            total = Decimal("0")
+            for ln in lines_to_invoice:
+                product = ln["product"]
+                allocations = allocate_batches_fefo(product, ln["quantity"])
+                disc = ln["discount_percent"]
+                for batch, take in allocations:
+                    batch.quantity -= take
+                    batch.save(update_fields=["quantity", "updated_on"])
+                    base_amt = Decimal(take) * ln["rate"]
+                    if disc > 0:
+                        base_amt = base_amt * (Decimal("100") - disc) / Decimal("100")
+                    line_amt = base_amt.quantize(Decimal("0.01"))
+                    total += line_amt
+                    InvoiceItem.objects.create(
+                        invoice=invoice,
                         product=product,
                         product_batch=batch,
-                        quantity=alloc['quantity'],
-                        rate=alloc['rate']
+                        quantity=take,
+                        rate=ln["rate"],
+                        free_quantity=ln["free_quantity"],
+                        discount_percent=disc,
+                        gst_percent=ln["gst_percent"],
+                        line_total=line_amt,
                     )
-                    total_amount += (item.quantity * item.rate)
-                
-            invoice.total_amount = total_amount
-            invoice.save()
-            
+
+            invoice.total_amount = total.quantize(Decimal("0.01"))
+            invoice.save(update_fields=["total_amount", "updated_on"])
+
+            for o in orders:
+                o.status = RetailerOrderStatusChoices.INVOICED
+                o.save(update_fields=["status", "updated_on"])
+
         return invoice
-    
-    def update(self, instance, validated_data):
-        from django.db import transaction
-        items_data = validated_data.pop('items', None)
-        customer = validated_data.get('customer', instance.customer)
-        
-        with transaction.atomic():
-            # Update invoice fields
-            for attr, value in validated_data.items():
-                setattr(instance, attr, value)
-            
-            # If items are updated, restore old batches and re-allocate
-            if items_data is not None:
-                # Restore quantities to batches
-                for old_item in instance.items.all():
-                    if old_item.product_batch:
-                        old_item.product_batch.quantity_remaining += old_item.quantity
-                        old_item.product_batch.save()
-                
-                # Delete existing items
-                instance.items.all().delete()
-                
-                total_amount = 0
-                for item_data in items_data:
-                    product = item_data['product']
-                    requested_quantity = item_data['quantity']
-                    
-                    allocations = self._allocate_batches(product, requested_quantity, customer)
-                    
-                    for alloc in allocations:
-                        batch = alloc['batch']
-                        batch.save()
-                        
-                        item = InvoiceItem.objects.create(
-                            invoice=instance,
-                            product=product,
-                            product_batch=batch,
-                            quantity=alloc['quantity'],
-                            rate=alloc['rate']
-                        )
-                        total_amount += (item.quantity * item.rate)
-                        
-                instance.total_amount = total_amount
-                
-            instance.save()
-            
-        return instance
+
+
+class PaymentSerializer(serializers.ModelSerializer):
+    recorded_by_name = serializers.CharField(
+        source="recorded_by.full_name", read_only=True, default=""
+    )
+    mode_display = serializers.CharField(source="get_mode_display", read_only=True)
+
+    class Meta:
+        model = Payment
+        fields = [
+            "id",
+            "invoice",
+            "amount",
+            "mode",
+            "mode_display",
+            "reference",
+            "note",
+            "paid_on",
+            "recorded_by",
+            "recorded_by_name",
+            "created_on",
+        ]
+        read_only_fields = ["invoice", "recorded_by", "created_on"]
+
+
+class PaymentCreateSerializer(serializers.Serializer):
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=Decimal("0.01"))
+    mode = serializers.ChoiceField(choices=PaymentModeChoices.choices)
+    reference = serializers.CharField(required=False, allow_blank=True, default="")
+    note = serializers.CharField(required=False, allow_blank=True, default="")
+    paid_on = serializers.DateTimeField()

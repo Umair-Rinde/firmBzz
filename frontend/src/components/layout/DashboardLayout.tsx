@@ -12,6 +12,7 @@ import {
   LogOut,
   Menu,
   CloudCog,
+  ClipboardList,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -109,6 +110,13 @@ export default function DashboardLayout() {
       title: "Vendor Orders",
       icon: Users,
       href: `/dashboard/${activeFirm}/vendor-orders`,
+      roles: ["firm_admin"],
+      requiresFirm: true,
+    },
+    {
+      title: "Retailer orders",
+      icon: ClipboardList,
+      href: `/dashboard/${activeFirm}/retailer-orders`,
       roles: ["firm_admin"],
       requiresFirm: true,
     },

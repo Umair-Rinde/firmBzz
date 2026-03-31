@@ -55,6 +55,7 @@ const VendorDrawer = ({
     });
 
     const initialValues = {
+        reference_code: vendor?.reference_code || "",
         vendor_name: vendor?.vendor_name || "",
         owner_name: vendor?.owner_name || "",
         gst_number: vendor?.gst_number || "",
@@ -85,6 +86,11 @@ const VendorDrawer = ({
                     {() => (
                         <Form className="flex-1 overflow-y-auto px-5 py-6">
                             <div className="space-y-6 mb-20">
+                                <CustomInput
+                                    name="reference_code"
+                                    label="Vendor code (e.g. V001)"
+                                    placeholder="Optional external id"
+                                />
                                 <div className="grid grid-cols-2 gap-4">
                                     <CustomInput
                                         name="vendor_name"

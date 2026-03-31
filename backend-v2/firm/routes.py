@@ -450,6 +450,52 @@ class ProductDetailAPIView(APIView):
         return apis.ProductCrudService.delete_product(slug, product_id)
 
 
+class RetailerOrderListCreateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    schema = AutoSchema()
+
+    @extend_schema(
+        summary="List retailer (salesman) orders",
+        description="Orders to a single retailer; firm admin later combines them into an invoice.",
+        tags=["Retailer orders"],
+    )
+    def get(self, request, slug):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
+        return apis.RetailerOrderService.list_retailer_orders(
+            slug, params=request.GET
+        )
+
+    @extend_schema(
+        summary="Create retailer order",
+        description="Salesman creates an order with line items (product + qty). Rates snapshotted from product master.",
+        tags=["Retailer orders"],
+    )
+    def post(self, request, slug):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
+        return apis.RetailerOrderService.create_retailer_order(
+            slug, request.data, request.user
+        )
+
+
+class RetailerOrderDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    schema = AutoSchema()
+
+    @extend_schema(
+        summary="Get retailer order",
+        tags=["Retailer orders"],
+    )
+    def get(self, request, slug, order_id):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
+        return apis.RetailerOrderService.get_retailer_order(slug, order_id)
+
+
 class InvoiceListCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
     schema = AutoSchema()
@@ -467,7 +513,10 @@ class InvoiceListCreateAPIView(APIView):
 
     @extend_schema(
         summary="Create Invoice",
-        description="Create a new invoice.",
+        description=(
+            "Body: { retailer_order_ids: [uuid, ...] }. All orders must be SUBMITTED, "
+            "same retailer, same firm. Stock is allocated FEFO from product batches."
+        ),
         tags=["Invoices"]
     )
     def post(self, request, slug):
@@ -536,6 +585,60 @@ class InvoiceRequestChangesAPIView(APIView):
         return apis.InvoiceService.request_changes(slug, invoice_id, request.data)
 
 
+class InvoicePrintAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    schema = AutoSchema()
+
+    @extend_schema(
+        summary="Print Single Invoice",
+        description="Mark an approved invoice as printed and return its data for printing.",
+        tags=["Invoices"],
+    )
+    def post(self, request, slug, invoice_id):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
+        return apis.InvoiceService.print_invoice(slug, invoice_id, request.user)
+
+
+class InvoiceBatchPrintAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    schema = AutoSchema()
+
+    @extend_schema(
+        summary="Batch Print Invoices",
+        description="Mark all approved unprinted invoices as printed and return their data for printing.",
+        tags=["Invoices"],
+    )
+    def post(self, request, slug):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
+        return apis.InvoiceService.batch_print_invoices(slug, request.user)
+
+
+class InvoiceStatusUpdateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    schema = AutoSchema()
+
+    @extend_schema(
+        summary="Update Invoice Status",
+        description=(
+            "Transition an invoice through the lifecycle: "
+            "APPROVED → OUT_FOR_DELIVERY → DELIVERED → PARTIALLY_PAID → PAID → CLOSED. "
+            "CANCELLED is allowed from most states."
+        ),
+        tags=["Invoices"],
+    )
+    def post(self, request, slug, invoice_id):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
+        return apis.InvoiceService.update_invoice_status(
+            slug, invoice_id, request.data, request.user
+        )
+
+
 class InvoicePricingPreviewAPIView(APIView):
     permission_classes = [IsAuthenticated]
     schema = AutoSchema()
@@ -550,7 +653,8 @@ class InvoicePricingPreviewAPIView(APIView):
         if denied:
             return denied
         return apis.InvoiceService.preview_pricing(slug, request.data)
-        return apis.InvoiceService.preview_pricing(slug, request.data)
+
+
 class FirmDashboardAPIView(APIView):
     permission_classes = [IsAuthenticated]
     schema = AutoSchema()
@@ -575,3 +679,31 @@ class AdminDashboardAPIView(APIView):
     )
     def get(self, request):
         return apis.DashboardService.get_admin_dashboard_data()
+
+
+class InvoicePaymentListCreateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    schema = AutoSchema()
+
+    def get(self, request, slug, invoice_id):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
+        return apis.PaymentService.list_payments(slug, invoice_id)
+
+    def post(self, request, slug, invoice_id):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
+        return apis.PaymentService.add_payment(slug, invoice_id, request.data, request.user)
+
+
+class CustomerOutstandingAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    schema = AutoSchema()
+
+    def get(self, request, slug, customer_id):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
+        return apis.PaymentService.customer_outstanding(slug, customer_id)

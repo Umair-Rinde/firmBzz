@@ -15,6 +15,11 @@ export default function VendorListPage() {
 
     const columns = [
         {
+            header: "Code",
+            accessorKey: "reference_code",
+            cell: ({ row }: any) => row.original.reference_code || "—",
+        },
+        {
             header: "Vendor Name",
             accessorKey: "vendor_name",
         },

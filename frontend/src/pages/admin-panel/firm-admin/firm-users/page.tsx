@@ -7,6 +7,14 @@ import AppBar from "@/components/ui/custom/app-bar";
 import { LuPen } from "react-icons/lu";
 import FirmUserDrawer from "./components/firm-user-drawer";
 
+const ROLE_COLORS: Record<string, string> = {
+    FIRM_ADMIN: "bg-blue-100 text-blue-800",
+    FIRM_USER: "bg-gray-100 text-gray-800",
+    SUPERSELLER_USER: "bg-purple-100 text-purple-800",
+    DISTRIBUTOR_USER: "bg-amber-100 text-amber-800",
+    SALES_PERSON: "bg-teal-100 text-teal-800",
+};
+
 export default function FirmUserManagementPage() {
     const { firmId } = useParams();
     const [openDrawer, setOpenDrawer] = useState(false);
@@ -28,16 +36,29 @@ export default function FirmUserManagementPage() {
         {
             header: "Role",
             accessorKey: "role_display",
+            cell: ({ row }: any) => {
+                const role = row.original.role;
+                return (
+                    <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            ROLE_COLORS[role] || "bg-gray-100 text-gray-700"
+                        }`}
+                    >
+                        {row.original.role_display}
+                    </span>
+                );
+            },
         },
         {
             header: "Status",
             accessorKey: "is_active",
             cell: ({ row }: any) => (
                 <span
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${row.original.is_active
-                        ? "bg-green-100 text-green-800"
-                        : "bg-red-100 text-red-800"
-                        }`}
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        row.original.is_active
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800"
+                    }`}
                 >
                     {row.original.is_active ? "Active" : "Inactive"}
                 </span>
@@ -71,7 +92,7 @@ export default function FirmUserManagementPage() {
         <div className="mt-[150px]">
             <AppBar
                 title="User Management"
-                subTitle="Manage users and their roles for your firm."
+                subTitle="Manage users and their roles for your firm. Users can belong to multiple firms."
             />
 
             <Datagrid

@@ -4,14 +4,14 @@ import AppBar from "@/components/ui/custom/app-bar";
 import CustomButton from "@/components/ui/custom/custom-button";
 import { FaPlus } from "react-icons/fa";
 import { useState } from "react";
+import { useParams } from "react-router-dom";
 import { useCookies } from "react-cookie";
-import RetailerOrderDrawer from "@/pages/admin-panel/firm-admin/retailer-orders/components/retailer-order-drawer";
-import { useNavigate } from "react-router-dom";
+import RetailerOrderDrawer from "./components/retailer-order-drawer";
 
-export default function RetailerOrderPage() {
+export default function FirmRetailerOrdersPage() {
+  const { firmId } = useParams();
   const [cookies] = useCookies(["firm"]);
-  const slug = cookies.firm;
-  const navigate = useNavigate();
+  const slug = firmId || cookies.firm;
 
   const columns: ColumnDef<any>[] = [
     {
@@ -26,6 +26,19 @@ export default function RetailerOrderPage() {
     {
       header: "Status",
       accessorKey: "status",
+      cell: ({ row }) => (
+        <span
+          className={
+            row.original.status === "SUBMITTED"
+              ? "text-emerald-700 font-medium"
+              : row.original.status === "INVOICED"
+                ? "text-gray-600"
+                : ""
+          }
+        >
+          {row.original.status}
+        </span>
+      ),
     },
     {
       header: "Created",
@@ -35,42 +48,35 @@ export default function RetailerOrderPage() {
           ? new Date(row.original.created_on).toLocaleString()
           : "—",
     },
+    {
+      header: "By",
+      accessorKey: "created_by_name",
+      cell: ({ row }) => row.original.created_by_name || "—",
+    },
   ];
 
   const [open, setOpen] = useState(false);
   const handleClose = () => setOpen(false);
 
-  if (!slug) {
-    return (
-      <div className="mt-[150px] px-6">
-        <AppBar title="Orders" subTitle="Select a firm from your profile to view orders." />
-        <p className="text-sm text-gray-600 mt-4">
-          No firm context. Log in again or switch role with a firm assigned.
-        </p>
-        <CustomButton className="mt-4" onClick={() => navigate("/login")}>
-          Go to login
-        </CustomButton>
-      </div>
-    );
-  }
-
   return (
     <div className="mt-[150px]">
       <AppBar
         title="Retailer orders"
-        subTitle="Place orders against your firm."
+        subTitle="Sales orders from retailers; firm admin invoices from submitted orders."
       />
       <Datagrid
         columns={columns}
-        title="Your orders"
-        url={`/firm/${slug}/retailer-orders/`}
+        title="Orders"
+        url={slug ? `/firm/${slug}/retailer-orders/` : undefined}
         extraButtons={
           <CustomButton onClick={() => setOpen(true)}>
             New order <FaPlus />
           </CustomButton>
         }
       />
-      {open && <RetailerOrderDrawer handleClose={handleClose} open={open} />}
+      {open && (
+        <RetailerOrderDrawer handleClose={handleClose} open={open} />
+      )}
     </div>
   );
 }
