@@ -1,11 +1,25 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { Datagrid } from "@/components/ui/custom/datgrid";
+import { Datagrid, FilterConfig } from "@/components/ui/custom/datgrid";
 import CustomButton from "@/components/ui/custom/custom-button";
 import { Plus } from "lucide-react";
 import AppBar from "@/components/ui/custom/app-bar";
 import { LuPen } from "react-icons/lu";
 import FirmUserDrawer from "./components/firm-user-drawer";
+
+const firmUserFilterConfig: FilterConfig[] = [
+    {
+        param: "role",
+        label: "Role",
+        options: [
+            { label: "Firm Admin", value: "FIRM_ADMIN" },
+            { label: "Firm User", value: "FIRM_USER" },
+            { label: "Super Seller", value: "SUPERSELLER_USER" },
+            { label: "Distributor", value: "DISTRIBUTOR_USER" },
+            { label: "Sales Person", value: "SALES_PERSON" },
+        ],
+    },
+];
 
 const ROLE_COLORS: Record<string, string> = {
     FIRM_ADMIN: "bg-blue-100 text-blue-800",
@@ -99,6 +113,7 @@ export default function FirmUserManagementPage() {
                 columns={columns}
                 title="Firm Users"
                 url={`/firm/${firmId}/firm-users/`}
+                filterConfig={firmUserFilterConfig}
                 extraButtons={
                     <CustomButton onClick={handleAdd} className="flex gap-2">
                         <Plus className="h-4 w-4" />

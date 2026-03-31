@@ -1,4 +1,4 @@
-import { Datagrid } from "@/components/ui/custom/datgrid";
+import { Datagrid, FilterConfig } from "@/components/ui/custom/datgrid";
 import { ColumnDef } from "@tanstack/react-table";
 import AppBar from "@/components/ui/custom/app-bar";
 import CustomButton from "@/components/ui/custom/custom-button";
@@ -10,6 +10,17 @@ import { useCookies } from "react-cookie";
 import { LuPen } from "react-icons/lu";
 import { DeleteItem } from "@/components/ui/custom/delete-dialog";
 import { Badge } from "@/components/ui/badge";
+
+const productFilterConfig: FilterConfig[] = [
+  {
+    param: "is_active",
+    label: "Status",
+    options: [
+      { label: "Active", value: "true" },
+      { label: "Inactive", value: "false" },
+    ],
+  },
+];
 
 function schemeBadge(row: any) {
   const st = row.scheme_type;
@@ -132,6 +143,7 @@ export default function FirmProductPage() {
         columns={columns}
         title="Products"
         url={`/firm/${cookies.firm}/products/`}
+        filterConfig={productFilterConfig}
         extraButtons={
           <div className="flex gap-4">
             <CustomButton

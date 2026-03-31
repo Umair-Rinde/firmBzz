@@ -1,12 +1,34 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Datagrid } from "@/components/ui/custom/datgrid";
+import { Datagrid, FilterConfig } from "@/components/ui/custom/datgrid";
 import CustomButton from "@/components/ui/custom/custom-button";
 import { Plus, PackageCheck, Upload } from "lucide-react";
 import AppBar from "@/components/ui/custom/app-bar";
 import { Badge } from "@/components/ui/badge";
 import ReceiveOrderDrawer from "./components/receive-order-drawer";
 import BulkImportOrderDrawer from "./components/bulk-import-order-drawer";
+
+const vendorOrderFilterConfig: FilterConfig[] = [
+    {
+        param: "order_status",
+        label: "Order Status",
+        options: [
+            { label: "Pending", value: "PENDING" },
+            { label: "Received", value: "RECEIVED" },
+            { label: "Completed", value: "COMPLETED" },
+            { label: "Cancelled", value: "CANCELLED" },
+        ],
+    },
+    {
+        param: "payment_status",
+        label: "Payment",
+        options: [
+            { label: "Unpaid", value: "UNPAID" },
+            { label: "Partial", value: "PARTIAL" },
+            { label: "Paid", value: "PAID" },
+        ],
+    },
+];
 
 export default function VendorOrderListPage() {
     const { firmId } = useParams();
@@ -106,6 +128,7 @@ export default function VendorOrderListPage() {
                 columns={columns}
                 title="Vendor Orders"
                 url={`/firm/${firmId}/vendor-orders/`}
+                filterConfig={vendorOrderFilterConfig}
                 extraButtons={
                     <div className="flex gap-4">
                         <CustomButton

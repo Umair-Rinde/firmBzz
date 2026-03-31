@@ -1,4 +1,4 @@
-import { Datagrid } from "@/components/ui/custom/datgrid";
+import { Datagrid, FilterConfig } from "@/components/ui/custom/datgrid";
 import { ColumnDef } from "@tanstack/react-table";
 import AppBar from "@/components/ui/custom/app-bar";
 import CustomButton from "@/components/ui/custom/custom-button";
@@ -7,6 +7,19 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useCookies } from "react-cookie";
 import RetailerOrderDrawer from "./components/retailer-order-drawer";
+
+const retailerOrderFilterConfig: FilterConfig[] = [
+  {
+    param: "status",
+    label: "Status",
+    options: [
+      { label: "Submitted", value: "SUBMITTED" },
+      { label: "Invoiced", value: "INVOICED" },
+      { label: "Draft", value: "DRAFT" },
+      { label: "Cancelled", value: "CANCELLED" },
+    ],
+  },
+];
 
 export default function FirmRetailerOrdersPage() {
   const { firmId } = useParams();
@@ -68,6 +81,7 @@ export default function FirmRetailerOrdersPage() {
         columns={columns}
         title="Orders"
         url={slug ? `/firm/${slug}/retailer-orders/` : undefined}
+        filterConfig={retailerOrderFilterConfig}
         extraButtons={
           <CustomButton onClick={() => setOpen(true)}>
             New order <FaPlus />

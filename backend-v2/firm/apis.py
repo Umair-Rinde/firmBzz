@@ -40,7 +40,7 @@ from django.db.models import Q, F, Sum
 
 def _get_pg_limit_q(params):
     try:
-        pg = int(params.get("pg") or 0)
+        pg = int(params.get("pg") or params.get("page") or 0)
     except:
         pg = 0
     try:
@@ -51,7 +51,7 @@ def _get_pg_limit_q(params):
         pg = 0
     if limit <= 0:
         limit = 20
-    q = (params.get("q") or "").strip()
+    q = (params.get("q") or params.get("search") or "").strip()
     return pg, limit, q
 
 
@@ -77,7 +77,32 @@ def _build_search_filter(model, q, extra_fields=None, ignore_fields=None):
     return search_q
 
 
-def _apply_datagrid(queryset, model, params, extra_search_fields=None, ignore_fields=None):
+def _apply_field_filters(queryset, params, filter_fields=None):
+    """
+    Apply exact-match filters from query params.
+    filter_fields: list of dicts like:
+        { "param": "status", "field": "status" }
+        { "param": "customer", "field": "customer_id" }
+        { "param": "is_active", "field": "is_active", "type": "bool" }
+    """
+    if not filter_fields:
+        return queryset
+    for ff in filter_fields:
+        param_name = ff["param"]
+        field_name = ff.get("field", param_name)
+        val = params.get(param_name)
+        if val is None or str(val).strip() == "":
+            continue
+        val = str(val).strip()
+        field_type = ff.get("type", "str")
+        if field_type == "bool":
+            queryset = queryset.filter(**{field_name: val.lower() in ("true", "1", "yes")})
+        else:
+            queryset = queryset.filter(**{field_name: val})
+    return queryset
+
+
+def _apply_datagrid(queryset, model, params, extra_search_fields=None, ignore_fields=None, filter_fields=None):
     pg, limit, q = _get_pg_limit_q(params)
     if q:
         queryset = queryset.filter(
@@ -88,6 +113,7 @@ def _apply_datagrid(queryset, model, params, extra_search_fields=None, ignore_fi
                 ignore_fields=ignore_fields,
             )
         )
+    queryset = _apply_field_filters(queryset, params, filter_fields)
     count = queryset.count()
     start = pg * limit
     end = start + limit
@@ -259,6 +285,10 @@ class ProductService:
             params=params,
             extra_search_fields=None,
             ignore_fields=["id", "firm"],
+            filter_fields=[
+                {"param": "category", "field": "category"},
+                {"param": "is_active", "field": "is_active", "type": "bool"},
+            ],
         )
         serializer = ProductSerializer(page_qs, many=True)
         data = {"rows": serializer.data, "count": count}
@@ -471,6 +501,11 @@ class VendorOrderService:
             params=params,
             extra_search_fields=["vendor__vendor_name"],
             ignore_fields=["id", "firm", "vendor"],
+            filter_fields=[
+                {"param": "order_status", "field": "order_status"},
+                {"param": "payment_status", "field": "payment_status"},
+                {"param": "vendor", "field": "vendor_id"},
+            ],
         )
 
         serializer = VendorOrderSerializer(page_qs, many=True)
@@ -859,6 +894,9 @@ class FirmUserService:
                 "firm__name",
             ],
             ignore_fields=["id", "user", "firm"],
+            filter_fields=[
+                {"param": "role", "field": "role"},
+            ],
         )
 
         serializer = FirmUserSerializer(page_qs, many=True)
@@ -1007,6 +1045,10 @@ class CustomerService:
                 params=params,
                 extra_search_fields=None,
                 ignore_fields=["id", "firm"],
+                filter_fields=[
+                    {"param": "customer_type", "field": "customer_type"},
+                    {"param": "is_active", "field": "is_active", "type": "bool"},
+                ],
             )
             serializer = CustomerSerializer(page_qs, many=True)
             data = {"rows": serializer.data, "count": count}
@@ -1118,6 +1160,10 @@ class RetailerOrderService:
                 "notes",
             ],
             ignore_fields=["id", "firm", "customer", "created_by"],
+            filter_fields=[
+                {"param": "status", "field": "status"},
+                {"param": "customer", "field": "customer_id"},
+            ],
         )
         data = {
             "rows": RetailerOrderSerializer(page_qs, many=True).data,
@@ -1193,6 +1239,11 @@ class InvoiceService:
                 "invoice_number",
             ],
             ignore_fields=["id", "firm", "customer", "created_by", "approved_by"],
+            filter_fields=[
+                {"param": "status", "field": "status"},
+                {"param": "customer", "field": "customer_id"},
+                {"param": "is_printed", "field": "is_printed", "type": "bool"},
+            ],
         )
 
         serializer = InvoiceSerializer(page_qs, many=True)

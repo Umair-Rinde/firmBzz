@@ -1,4 +1,4 @@
-import { Datagrid } from "@/components/ui/custom/datgrid";
+import { Datagrid, FilterConfig } from "@/components/ui/custom/datgrid";
 import { ColumnDef } from "@tanstack/react-table";
 import AppBar from "@/components/ui/custom/app-bar";
 import CustomButton from "@/components/ui/custom/custom-button";
@@ -9,6 +9,25 @@ import { useCookies } from "react-cookie";
 import { LuPen } from "react-icons/lu";
 import { DeleteItem } from "@/components/ui/custom/delete-dialog";
 import { Badge } from "@/components/ui/badge";
+
+const retailerFilterConfig: FilterConfig[] = [
+  {
+    param: "customer_type",
+    label: "Type",
+    options: [
+      { label: "Super Seller", value: "SUPER_SELLER" },
+      { label: "Distributor", value: "DISTRIBUTOR" },
+    ],
+  },
+  {
+    param: "is_active",
+    label: "Status",
+    options: [
+      { label: "Active", value: "true" },
+      { label: "Inactive", value: "false" },
+    ],
+  },
+];
 
 export default function RetailerConfigPage() {
   const [cookies] = useCookies(["firm"]);
@@ -96,6 +115,7 @@ export default function RetailerConfigPage() {
         columns={columns}
         title="Retailers"
         url={`/firm/${cookies.firm}/customers/`}
+        filterConfig={retailerFilterConfig}
         extraButtons={
           <CustomButton onClick={() => setOpen(true)}>
             Add Retailer <FaPlus />
