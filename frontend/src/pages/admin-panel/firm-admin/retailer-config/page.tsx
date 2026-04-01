@@ -106,7 +106,7 @@ export default function RetailerConfigPage() {
   };
 
   return (
-    <div className="mt-[150px]">
+    <div className="dashboard-page-offset max-w-full min-w-0">
       <AppBar
         title="Retailers"
         subTitle={`Create, Update and Delete Retailers`}

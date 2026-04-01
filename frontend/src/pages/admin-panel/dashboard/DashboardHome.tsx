@@ -132,7 +132,7 @@ function FirmDashboard({ data }: { data: any }) {
       {/* Charts row */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
         {/* Pie chart */}
-        <Card className="col-span-3 hover:shadow-md transition-shadow">
+        <Card className="col-span-1 md:col-span-2 lg:col-span-3 hover:shadow-md transition-shadow">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <DollarSign className="h-5 w-5" />
@@ -174,7 +174,7 @@ function FirmDashboard({ data }: { data: any }) {
         </Card>
 
         {/* Invoice & Order status */}
-        <Card className="col-span-4 hover:shadow-md transition-shadow">
+        <Card className="col-span-1 md:col-span-2 lg:col-span-4 hover:shadow-md transition-shadow">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5" />
@@ -337,7 +337,7 @@ function AdminDashboard({ data }: { data: any }) {
 
       {/* Charts: Pie + Per-firm bar */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-3 hover:shadow-md transition-shadow">
+        <Card className="col-span-1 md:col-span-2 lg:col-span-3 hover:shadow-md transition-shadow">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <DollarSign className="h-5 w-5" />
@@ -378,7 +378,7 @@ function AdminDashboard({ data }: { data: any }) {
           </CardContent>
         </Card>
 
-        <Card className="col-span-4 hover:shadow-md transition-shadow">
+        <Card className="col-span-1 md:col-span-2 lg:col-span-4 hover:shadow-md transition-shadow">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5" />
@@ -489,7 +489,7 @@ export default function DashboardHome() {
   }
 
   return (
-    <div className="space-y-6 mt-[150px]">
+    <div className="space-y-6 dashboard-page-offset">
       <AppBar
         title={role === 'admin' ? "Admin Dashboard" : "Firm Dashboard"}
         subTitle={

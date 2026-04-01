@@ -574,7 +574,7 @@ const InvoiceCreatePage = () => {
   const products = productsRaw || [];
 
   return (
-    <div className="mt-[150px] px-6 pb-20">
+    <div className="dashboard-page-offset pb-20 max-w-full min-w-0">
       <div className="flex items-center gap-4 mb-6">
         <CustomButton variant="outline" size="icon" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-4 w-4" />

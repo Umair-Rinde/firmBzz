@@ -18,11 +18,11 @@ export function Navbar() {
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl shadow-nav">
       <div className="container flex h-16 items-center justify-between">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
+        <Link to="/" className="flex min-w-0 items-center gap-2">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary">
             <span className="text-lg font-bold text-primary-foreground">AE</span>
           </div>
-          <span className="font-heading text-xl font-bold text-foreground">
+          <span className="font-heading text-lg sm:text-xl font-bold text-foreground truncate">
             Anmol Enterprises
           </span>
         </Link>

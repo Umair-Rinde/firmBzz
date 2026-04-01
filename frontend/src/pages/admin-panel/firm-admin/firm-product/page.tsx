@@ -137,7 +137,7 @@ export default function FirmProductPage() {
     setOpen(false);
   };
   return (
-    <div className="mt-[150px]">
+    <div className="dashboard-page-offset max-w-full min-w-0">
       <AppBar title="Products" subTitle="Create, update and delete products" />
       <Datagrid
         columns={columns}

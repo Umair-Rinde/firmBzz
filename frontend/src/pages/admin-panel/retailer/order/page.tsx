@@ -41,7 +41,7 @@ export default function RetailerOrderPage() {
 
   if (!slug) {
     return (
-      <div className="mt-[150px] px-6">
+      <div className="dashboard-page-offset max-w-full min-w-0">
         <AppBar title="Orders" subTitle="Select a firm from your profile to view orders." />
         <p className="text-sm text-gray-600 mt-4">
           No firm context. Log in again or switch role with a firm assigned.
@@ -54,7 +54,7 @@ export default function RetailerOrderPage() {
   }
 
   return (
-    <div className="mt-[150px]">
+    <div className="dashboard-page-offset max-w-full min-w-0">
       <AppBar
         title="Retailer orders"
         subTitle="Place orders against your firm."

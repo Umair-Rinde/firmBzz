@@ -50,7 +50,7 @@ const Retailers = () => {
                 <Building2 className="h-4 w-4" />
                 For Retailers & Sellers
               </span>
-              <h1 className="mt-6 font-heading text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl">
+              <h1 className="mt-6 font-heading text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl md:text-5xl">
                 Sell Your Products to{" "}
                 <span className="text-primary">Thousands of Businesses</span>
               </h1>

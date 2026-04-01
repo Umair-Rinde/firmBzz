@@ -123,16 +123,16 @@ const Index = () => {
       <Navbar />
 
       {/* ================= HERO SECTION - WHOLESALER FOCUS ================= */}
-      <section className="relative min-h-[90vh] overflow-hidden bg-gradient-to-br from-blue-50 to-amber-50">
+      <section className="relative min-h-[70vh] sm:min-h-[90vh] overflow-hidden bg-gradient-to-br from-blue-50 to-amber-50">
         {/* Background pattern */}
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-20 left-20 w-64 h-64 rounded-full bg-blue-200 blur-3xl" />
           <div className="absolute bottom-20 right-20 w-64 h-64 rounded-full bg-amber-200 blur-3xl" />
         </div>
 
-        <div className="container relative z-10 flex min-h-[90vh] items-center">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div className="max-w-2xl">
+        <div className="container relative z-10 flex min-h-[70vh] sm:min-h-[90vh] items-center py-10 sm:py-0">
+          <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center w-full">
+            <div className="max-w-2xl w-full min-w-0">
               <div className="inline-flex items-center gap-2 rounded-full bg-white/80 backdrop-blur-sm px-4 py-2 border border-blue-200 mb-6">
                 <Truck className="h-4 w-4 text-blue-600" />
                 <span className="text-sm font-medium text-blue-700">
@@ -140,7 +140,7 @@ const Index = () => {
                 </span>
               </div>
 
-              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight">
+              <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight">
                 <span className="text-blue-700">Dairy & Ice Cream</span>
                 <br />
                 <span className="text-amber-600">Supplies Wholesaler</span>
@@ -203,20 +203,20 @@ const Index = () => {
               {businessStats.map((stat, index) => (
                 <div
                   key={stat.label}
-                  className={`bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-blue-100 shadow-lg ₹{
+                  className={`bg-white/90 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-blue-100 shadow-lg ${
                     index === 0 ? "col-span-2" : ""
                   }`}
                 >
                   <div className="flex items-center gap-4">
                     <div
-                      className={`p-3 rounded-xl ₹{
+                      className={`p-3 rounded-xl ${
                       index === 0 ? "bg-blue-100" : 
                       index === 1 ? "bg-green-100" : 
                       index === 2 ? "bg-amber-100" : "bg-purple-100"
                     }`}
                     >
                       <stat.icon
-                        className={`h-6 w-6 ₹{
+                        className={`h-6 w-6 ${
                         index === 0 ? "text-blue-600" : 
                         index === 1 ? "text-green-600" : 
                         index === 2 ? "text-amber-600" : "text-purple-600"
@@ -241,7 +241,7 @@ const Index = () => {
       <section className="py-20 bg-gray-50">
         <div className="container">
           <div className="text-center max-w-3xl mx-auto">
-            <h2 className="text-4xl font-bold text-gray-900">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900">
               Simple Order Process for Retailers
             </h2>
             <p className="mt-4 text-lg text-gray-600">
@@ -276,7 +276,7 @@ const Index = () => {
       <section className="py-20">
         <div className="container">
           <div className="text-center max-w-3xl mx-auto">
-            <h2 className="text-4xl font-bold text-gray-900">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900">
               Our Product Categories
             </h2>
             <p className="mt-4 text-lg text-gray-600">
@@ -328,7 +328,7 @@ const Index = () => {
       <section className="py-20 bg-gradient-to-r from-blue-50 to-amber-50">
         <div className="container">
           <div className="text-center max-w-3xl mx-auto">
-            <h2 className="text-4xl font-bold text-gray-900">Areas We Serve</h2>
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900">Areas We Serve</h2>
             <p className="mt-4 text-lg text-gray-600">
               Our sales team visits shops in these locations daily
             </p>
@@ -391,7 +391,7 @@ const Index = () => {
         <div className="container">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-8 mb-12">
             <div>
-              <h2 className="text-4xl font-bold text-gray-900">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900">
                 Featured Products
               </h2>
               <p className="mt-2 text-lg text-gray-600">
@@ -438,8 +438,8 @@ const Index = () => {
         <div className="container">
           <div className="max-w-4xl mx-auto text-center text-white">
             <Shield className="h-16 w-16 mx-auto mb-6" />
-            <h2 className="text-4xl font-bold">Ready to Stock Your Shop?</h2>
-            <p className="mt-4 text-xl opacity-90">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold">Ready to Stock Your Shop?</h2>
+            <p className="mt-4 text-base sm:text-lg md:text-xl opacity-90">
               Join 500+ retailers who trust us for their daily supplies. Get
               fresh products delivered to your shop every day.
             </p>

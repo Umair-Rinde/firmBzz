@@ -138,7 +138,7 @@ const UserConfig = () => {
   };
 
   return (
-    <div className="mt-[150px]">
+    <div className="dashboard-page-offset max-w-full min-w-0">
       <AppBar
         title="User Management"
         subTitle="Create, update and manage users across all firms."

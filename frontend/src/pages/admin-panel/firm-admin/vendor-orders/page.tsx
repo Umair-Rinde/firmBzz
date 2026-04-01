@@ -119,7 +119,7 @@ export default function VendorOrderListPage() {
     };
 
     return (
-        <div className="mt-[150px]">
+        <div className="dashboard-page-offset max-w-full min-w-0">
             <AppBar
                 title="Vendor Orders"
                 subTitle="Manage and track orders from your vendors."

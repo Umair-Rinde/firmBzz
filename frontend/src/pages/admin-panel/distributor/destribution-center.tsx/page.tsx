@@ -31,7 +31,7 @@ const columns: ColumnDef<any>[] = [
 
 export default function DistributionPage() {
   return (
-    <div className="space-y-6 mt-[150px]">
+    <div className="space-y-6 dashboard-page-offset max-w-full min-w-0">
       <AppBar subTitle="Distribution Center" title="Distribution Center" />
 
       <div className="grid gap-4 md:grid-cols-3">

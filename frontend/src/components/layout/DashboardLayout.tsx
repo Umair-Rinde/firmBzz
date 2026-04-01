@@ -382,13 +382,19 @@ export default function DashboardLayout() {
 
       <div
         className={`
-          flex-1 transition-all
+          flex-1 min-w-0 transition-all
           ${isMobile ? "ml-0 mt-16" : "ml-80"}
         `}
       >
         <BreadcrumbBar className={`${isMobile ? "hidden" : "ml-80"}`} />
 
-        <div className="pt-[3.75rem] px-7 py-6">
+        <div
+          className={`
+          min-w-0 flex-1
+          ${isMobile ? "pt-4" : "pt-[3.75rem]"}
+          px-4 py-4 sm:px-5 sm:py-5 md:px-7 md:py-6
+        `}
+        >
           <Outlet />
         </div>
       </div>

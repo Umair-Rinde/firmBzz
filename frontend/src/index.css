@@ -196,6 +196,11 @@
 }
 
 @layer utilities {
+  /* Clears fixed dashboard header (mobile: app bar + page title bar; md+: breadcrumb + title bar) */
+  .dashboard-page-offset {
+    @apply mt-[10rem] md:mt-[150px];
+  }
+
   .animate-gradient {
     background-size: 200% 200%;
     animation: gradient 8s ease infinite;

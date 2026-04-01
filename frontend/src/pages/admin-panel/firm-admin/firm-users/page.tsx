@@ -103,7 +103,7 @@ export default function FirmUserManagementPage() {
     };
 
     return (
-        <div className="mt-[150px]">
+        <div className="dashboard-page-offset max-w-full min-w-0">
             <AppBar
                 title="User Management"
                 subTitle="Manage users and their roles for your firm. Users can belong to multiple firms."

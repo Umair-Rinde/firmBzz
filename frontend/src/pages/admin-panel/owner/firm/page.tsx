@@ -73,7 +73,7 @@ export default function OwnerFirmPage() {
     setSelectedRow(null);
   };
   return (
-    <div className="mt-[150px]">
+    <div className="dashboard-page-offset max-w-full min-w-0">
       <AppBar title="Firm" subTitle={`Create , Update and Delete Firms`} />
       <Datagrid
         columns={columns}

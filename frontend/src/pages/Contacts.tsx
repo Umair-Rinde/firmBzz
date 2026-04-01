@@ -37,10 +37,10 @@ const Contact = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <main className="py-20">
+      <main className="py-12 sm:py-20">
         <div className="container">
           <div className="mx-auto max-w-3xl text-center">
-            <h1 className="font-heading text-4xl font-bold text-foreground sm:text-5xl">
+            <h1 className="font-heading text-3xl font-bold text-foreground sm:text-4xl md:text-5xl">
               Get in Touch
             </h1>
             <p className="mt-4 text-lg text-muted-foreground">

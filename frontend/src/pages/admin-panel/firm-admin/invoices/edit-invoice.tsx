@@ -382,7 +382,7 @@ const InvoiceEditPage = () => {
   };
 
   if (isLoadingInvoice || !invoice) {
-    return <div className="mt-[150px] px-6">Loading invoice...</div>;
+    return <div className="dashboard-page-offset max-w-full min-w-0">Loading invoice...</div>;
   }
 
   const handleReject = () => {
@@ -393,7 +393,7 @@ const InvoiceEditPage = () => {
   const totalDisplay = invoice.total_amount != null ? Number(invoice.total_amount).toFixed(2) : "—";
 
   return (
-    <div className="mt-[150px] px-6 pb-20">
+    <div className="dashboard-page-offset pb-20 max-w-full min-w-0">
       <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
         <div className="flex items-center gap-4">
           <CustomButton variant="outline" size="icon" onClick={() => navigate(-1)}>

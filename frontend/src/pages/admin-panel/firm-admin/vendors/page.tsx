@@ -71,7 +71,7 @@ export default function VendorListPage() {
     };
 
     return (
-        <div className="mt-[150px]">
+        <div className="dashboard-page-offset max-w-full min-w-0">
             <AppBar
                 title="Vendors"
                 subTitle="Manage your firm's suppliers and vendors."

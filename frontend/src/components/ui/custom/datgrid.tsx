@@ -463,8 +463,8 @@ export const Datagrid = ({
   const showFilterBar = filterConfig && filterConfig.length > 0;
 
   return (
-    <div className="my-7 w-full bg-white border-[1px] border-[#E9EAEB] shadow-[rgba(10,13,18,0.1)] !rounded-[12px]">
-      <div className="flex justify-between lg:items-center items-end min-h-[81px] lg:flex-row px-[1.5rem] py-4 flex-col gap-5 flex-wrap">
+    <div className="my-4 sm:my-7 w-full min-w-0 max-w-full bg-white border-[1px] border-[#E9EAEB] shadow-[rgba(10,13,18,0.1)] !rounded-[12px]">
+      <div className="flex justify-between lg:items-center items-stretch min-h-[81px] lg:flex-row px-4 sm:px-[1.5rem] py-4 flex-col gap-4 sm:gap-5 flex-wrap">
         <div className="flex justify-start items-center gap-3 md:w-auto w-full">
           {title && (
             <p className="font-semibold leading-[28px] text-[#181D27] text-[18px]">
@@ -545,7 +545,7 @@ export const Datagrid = ({
         </div>
       )}
 
-      <div className="lg:w-full w-[calc(100vw_-_60px)] overflow-auto min-h-auto">
+      <div className="w-full max-w-full overflow-x-auto min-h-auto -mx-px">
         <table
           style={{
             minWidth: "100%",
@@ -657,8 +657,8 @@ export const Datagrid = ({
         </table>
       </div>
       {!disablePagination && (
-        <div className="flex justify-between px-[16px] py-[12px] !h-[68px]">
-          <div className="justify-start items-center gap-2 flex">
+        <div className="flex flex-col sm:flex-row sm:justify-between gap-3 px-3 sm:px-[16px] py-3 sm:py-[12px] sm:!h-[68px]">
+          <div className="justify-start items-center gap-2 flex flex-wrap">
             <div className="text-[#A8A8A8] w-[180px] text-xs md:block hidden">
               Showing {pagination.pageIndex + 1} to{" "}
               {(pagination.pageIndex + 1) * pagination.pageSize} of{" "}
@@ -683,7 +683,7 @@ export const Datagrid = ({
               Entries
             </div>
           </div>
-          <div>
+          <div className="w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
             <PaginationComponent
               table={table}
               key={"pagination"}

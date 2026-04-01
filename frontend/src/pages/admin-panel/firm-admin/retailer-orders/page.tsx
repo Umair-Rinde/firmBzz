@@ -69,7 +69,7 @@ export default function FirmRetailerOrdersPage() {
   const handleClose = () => setOpen(false);
 
   return (
-    <div className="mt-[150px]">
+    <div className="dashboard-page-offset max-w-full min-w-0">
       <AppBar
         title="Retailer orders"
         subTitle="Sales orders from retailers; firm admin invoices from submitted orders."
