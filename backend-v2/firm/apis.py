@@ -409,6 +409,7 @@ class ProductService:
                     rate_per_unit=_parse_decimal_cell(
                         _row_get(
                             row,
+                            "rate/unit",
                             "rate/uni",
                             "rate_uni",
                             "rate per unit",

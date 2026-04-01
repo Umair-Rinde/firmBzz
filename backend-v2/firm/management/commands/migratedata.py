@@ -9,6 +9,7 @@ then imports:
 Usage:
     python manage.py migratedata
     python manage.py migratedata --skip-firms   # only import XLS, skip firm/user creation
+    python manage.py migratedata --refresh-products  # re-apply rates/MRP from XLS to existing rows (by item name)
 """
 
 import os
@@ -131,6 +132,41 @@ def _read_excel(filepath: str) -> list[dict]:
 # -- importers --
 
 
+def _product_fields_from_row(row: dict) -> dict:
+    """Map one Excel row to Product field values (shared by create + refresh)."""
+    return {
+        "product_code": str(
+            _row_get(row, "product_code", "productcode", "code", "item code", "itemcode", "sr no") or ""
+        ).strip()
+        or None,
+        "description": str(_row_get(row, "description") or "").strip() or None,
+        "category": str(_row_get(row, "category") or "").strip() or None,
+        "hsn_code": str(_row_get(row, "hsnno", "hsn_no", "hsn_code", "hsn code", "hsn") or "").strip() or None,
+        "gst_percent": _dec(_row_get(row, "gstper", "gst_percent", "gst %", "gst")),
+        "liters": _dec(_row_get(row, "liters", "ltr")),
+        "pack": _dec(_row_get(row, "pack")),
+        "mrp": _dec(_row_get(row, "mrp")),
+        "purchase_rate": _dec(_row_get(row, "prate", "purchase_rate", "purchase rate")),
+        "purchase_rate_per_unit": _dec(
+            _row_get(row, "prateunit", "prateur", "purchase_rate_per_unit")
+        ),
+        "sale_rate": _dec(_row_get(row, "srate", "sale_rate", "sale rate", "s_rate")),
+        # Excel exports use header "Rate/unit" -> key "rate/unit" (not "rate/uni")
+        "rate_per_unit": _dec(
+            _row_get(
+                row,
+                "rate/unit",
+                "rate/uni",
+                "rate_uni",
+                "rate per unit",
+                "rate_per_unit",
+            )
+        ),
+        "product_discount": _dec(_row_get(row, "product_discount", "discount", "disc")),
+        "is_active": _parse_active(_row_get(row, "active", "is_active")),
+    }
+
+
 def import_products(firm: Firm, rows: list[dict], stdout) -> int:
     created = 0
     skipped = 0
@@ -147,28 +183,36 @@ def import_products(firm: Firm, rows: list[dict], stdout) -> int:
             skipped += 1
             continue
 
+        pf = _product_fields_from_row(row)
         Product.objects.create(
             firm=firm,
-            product_code=str(_row_get(row, "product_code", "productcode", "code", "item code", "itemcode", "sr no") or "").strip() or None,
             name=name,
-            description=str(_row_get(row, "description") or "").strip() or None,
-            category=str(_row_get(row, "category") or "").strip() or None,
-            hsn_code=str(_row_get(row, "hsnno", "hsn_no", "hsn_code", "hsn code", "hsn") or "").strip() or None,
-            gst_percent=_dec(_row_get(row, "gstper", "gst_percent", "gst %", "gst")),
-            liters=_dec(_row_get(row, "liters", "ltr")),
-            pack=_dec(_row_get(row, "pack")),
-            mrp=_dec(_row_get(row, "mrp")),
-            purchase_rate=_dec(_row_get(row, "prate", "purchase_rate", "purchase rate")),
-            purchase_rate_per_unit=_dec(_row_get(row, "prateunit", "prateur", "purchase_rate_per_unit")),
-            sale_rate=_dec(_row_get(row, "srate", "sale_rate", "sale rate")),
-            rate_per_unit=_dec(_row_get(row, "rate/uni", "rate_uni", "rate per unit", "rate_per_unit")),
-            product_discount=_dec(_row_get(row, "product_discount", "discount", "disc")),
-            is_active=_parse_active(_row_get(row, "active", "is_active")),
+            **pf,
         )
         created += 1
 
     stdout.write(f"  [products] {created} created, {skipped} skipped for {firm.name}")
     return created
+
+
+def refresh_products_from_rows(firm: Firm, rows: list[dict], stdout) -> tuple[int, int]:
+    """Update existing products matched by name (case-insensitive) from spreadsheet."""
+    updated = 0
+    missing = 0
+    for row in rows:
+        name_raw = _row_get(row, "itemname", "item name", "name", "product name", "item_name")
+        name = str(name_raw).strip() if name_raw else ""
+        if not name:
+            continue
+        qs = Product.objects.filter(firm=firm, name__iexact=name)
+        if not qs.exists():
+            missing += 1
+            continue
+        pf = _product_fields_from_row(row)
+        qs.update(**pf)
+        updated += 1
+    stdout.write(f"  [products refresh] {updated} updated, {missing} spreadsheet rows had no DB match for {firm.name}")
+    return updated, missing
 
 
 def _clean_str(val) -> str:
@@ -230,8 +274,6 @@ def import_customers(firm: Firm, rows: list[dict], stdout) -> int:
         ref_id = _clean_str(_row_get(row, "id", "reference_code", "ref_code", "ref code", "code"))
         ref_code = f"R{ref_id}" if ref_id else None
 
-        discount_raw = _row_get(row, "dis %", "dis%", "discount", "disc")
-
         full_address = address
         if area:
             full_address = f"{address}, {area}" if address else area
@@ -277,8 +319,27 @@ class Command(BaseCommand):
             action="store_true",
             help="Skip firm/user creation (only run XLS imports)",
         )
+        parser.add_argument(
+            "--refresh-products",
+            action="store_true",
+            help="Re-read item-master XLS and update existing products (rates, MRP, etc.) by item name; does not create rows",
+        )
 
     def handle(self, *args, **options):
+        if options["refresh_products"]:
+            firms = []
+            for fd in FIRMS:
+                try:
+                    firms.append(Firm.objects.get(code=fd["code"]))
+                except Firm.DoesNotExist:
+                    self.stderr.write(
+                        self.style.ERROR(f"Firm {fd['code']} not found – run migratedata without --refresh-products first")
+                    )
+                    return
+            self._refresh_products_from_files(firms)
+            self.stdout.write(self.style.SUCCESS("\nProduct refresh complete!"))
+            return
+
         firms = []
 
         if not options["skip_firms"]:
@@ -390,3 +451,24 @@ class Command(BaseCommand):
                 with transaction.atomic():
                     rows = _read_excel(str(cf))
                     import_customers(firm, rows, self.stdout)
+
+    def _refresh_products_from_files(self, firms: list[Firm]):
+        if not MIGRATION_DIR.exists():
+            self.stdout.write(self.style.WARNING(f"  migrationdata/ not found at {MIGRATION_DIR}"))
+            return
+        xls_files = [
+            f for f in MIGRATION_DIR.iterdir()
+            if f.suffix.lower() in (".xls", ".xlsx") and not f.name.startswith("~")
+        ]
+        product_files = [f for f in xls_files if any(k in f.stem.lower() for k in ("item", "product"))]
+        if not product_files:
+            self.stdout.write(self.style.WARNING("  No item/product XLS files in migrationdata/"))
+            return
+        for firm in firms:
+            self.stdout.write(f"\n  -- Refresh products for {firm.name} --")
+            firm_key = firm.name.lower()
+            for pf in [f for f in product_files if self._file_matches_firm(f, firm_key)]:
+                self.stdout.write(f"  Updating from {pf.name} ...")
+                with transaction.atomic():
+                    rows = _read_excel(str(pf))
+                    refresh_products_from_rows(firm, rows, self.stdout)

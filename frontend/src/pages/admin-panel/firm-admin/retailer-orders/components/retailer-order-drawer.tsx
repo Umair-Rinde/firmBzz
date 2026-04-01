@@ -320,9 +320,13 @@ const RetailerOrderDrawer = ({
   });
 
   const customers = (customersRaw || []).filter((c: any) => c.is_active);
-  const products = (productsRaw || []).filter(
-    (p: any) => p.is_active && Number(p.available_quantity ?? 0) > 0,
-  );
+  // Show all active products; stock can be 0 (e.g. migrated catalog without batches).
+  const products = [...(productsRaw || [])]
+    .filter((p: any) => p.is_active)
+    .sort(
+      (a: any, b: any) =>
+        Number(b.available_quantity ?? 0) - Number(a.available_quantity ?? 0),
+    );
 
   const validationSchema = Yup.object().shape({
     customer: Yup.object().nullable().required("Customer is required"),
