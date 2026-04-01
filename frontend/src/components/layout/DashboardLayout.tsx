@@ -17,6 +17,7 @@ import {
 import { useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useFirmSlug } from "@/hooks/useFirmSlug";
 import { BreadcrumbBar } from "../ui/custom/breadcrum-bar";
 import { Avatar, AvatarFallback } from "../ui/avatar";
 import {
@@ -49,7 +50,7 @@ export default function DashboardLayout() {
   ]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [openRoleDialog, setOpenRoleDialog] = useState(false);
-  const activeFirm = cookies.firm || user?.firm_slug || null;
+  const activeFirm = useFirmSlug();
   const [selectedRole, setSelectedRole] = useState(
     cookies.current_role || user?.role || "admin",
   );
@@ -57,7 +58,15 @@ export default function DashboardLayout() {
   useEffect(() => {
     setSelectedRole(cookies.current_role);
   }, []);
-  console.log(cookies, "<------- coooo", user?.role);
+
+  // Keep the firm cookie in sync: if a non-admin user has a firm slug
+  // from auth context but the cookie is missing, set it so every page
+  // that reads cookies.firm picks it up.
+  useEffect(() => {
+    if (activeFirm && !cookies.firm) {
+      setCookie("firm", activeFirm, { path: "/" });
+    }
+  }, [activeFirm, cookies.firm, setCookie]);
 
   const handleLogout = () => {
     removeCookie("firm");
@@ -150,8 +159,10 @@ export default function DashboardLayout() {
 
   const activeRole = cookies.current_role || user?.role;
 
-  const filteredMenu = menuItems.filter((item) =>
-    item.roles.includes(activeRole || "")
+  const filteredMenu = menuItems.filter(
+    (item) =>
+      item.roles.includes(activeRole || "") &&
+      (!item.requiresFirm || !!activeFirm)
   );
   const { data: FirmData } = useQuery<FirmInterface[]>({
     queryKey: [`/firm/all/`],

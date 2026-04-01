@@ -464,7 +464,7 @@ class RetailerOrderListCreateAPIView(APIView):
         if denied:
             return denied
         return apis.RetailerOrderService.list_retailer_orders(
-            slug, params=request.GET
+            slug, user=request.user, params=request.GET
         )
 
     @extend_schema(

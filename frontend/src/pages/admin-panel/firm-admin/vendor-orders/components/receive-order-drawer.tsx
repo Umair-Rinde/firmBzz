@@ -1,11 +1,12 @@
 import CustomButton from "@/components/ui/custom/custom-button";
 import { Drawer } from "@/components/ui/custom/custom-drawer";
 import CustomInput from "@/components/ui/custom/custom-input";
+import { getApiErrorMessage } from "@/config/api-error";
 import { axios } from "@/config/axios";
 import { queryClient } from "@/config/query-client";
 import { useMutation } from "@tanstack/react-query";
 import { Form, Formik } from "formik";
-import { useParams } from "react-router-dom";
+import { useFirmSlug } from "@/hooks/useFirmSlug";
 import { toast } from "sonner";
 import * as Yup from "yup";
 
@@ -20,7 +21,7 @@ const ReceiveOrderDrawer = ({
     order: any;
     onSuccess?: () => void;
 }) => {
-    const { firmId } = useParams();
+    const firmId = useFirmSlug();
 
     const validationSchema = Yup.object().shape({
         items: Yup.array().of(
@@ -39,8 +40,8 @@ const ReceiveOrderDrawer = ({
             queryClient.invalidateQueries({ queryKey: [`/firm/${firmId}/vendor-orders/`] });
             queryClient.invalidateQueries({ queryKey: [`/firm/${firmId}/products/`] });
         },
-        onError: (err: any) => {
-            toast.error(err?.response?.data?.message || "Something went wrong!");
+        onError: (err: unknown) => {
+            toast.error(getApiErrorMessage(err, "Something went wrong!"));
         },
     });
 

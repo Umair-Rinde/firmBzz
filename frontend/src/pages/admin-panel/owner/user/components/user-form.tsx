@@ -3,6 +3,7 @@ import { Drawer } from "@/components/ui/custom/custom-drawer";
 import CustomInput from "@/components/ui/custom/custom-input";
 import CustomSelect from "@/components/ui/custom/custom-select";
 import { DatePickerComponent } from "@/components/ui/custom/date-picker";
+import { getApiErrorMessage } from "@/config/api-error";
 import { axios } from "@/config/axios";
 import { queryClient } from "@/config/query-client";
 import { useQuery } from "@/hooks/useQuerry";
@@ -66,8 +67,8 @@ const UserDrawer = ({
       handleClose();
       queryClient.refetchQueries({ queryKey: ["/accounts/list/get/"] });
     },
-    onError: (resp: any) => {
-      toast.error(resp?.response?.data?.message || "Something went wrong!");
+    onError: (resp: unknown) => {
+      toast.error(getApiErrorMessage(resp, "Something went wrong!"));
     },
   });
 

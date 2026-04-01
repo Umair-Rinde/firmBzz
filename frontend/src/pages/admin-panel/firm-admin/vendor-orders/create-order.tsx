@@ -3,17 +3,19 @@ import CustomButton from "@/components/ui/custom/custom-button";
 import CustomInput from "@/components/ui/custom/custom-input";
 import CustomSelect from "@/components/ui/custom/custom-select";
 import { DatePickerComponent as CustomDatePicker } from "@/components/ui/custom/date-picker";
+import { getApiErrorMessage } from "@/config/api-error";
 import { axios } from "@/config/axios";
 import { queryClient } from "@/config/query-client";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { FieldArray, Form, Formik } from "formik";
 import { Plus, Trash2, ArrowLeft } from "lucide-react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { useFirmSlug } from "@/hooks/useFirmSlug";
 import { toast } from "sonner";
 import * as Yup from "yup";
 
 const VendorOrderAddPage = () => {
-    const { firmId } = useParams();
+    const firmId = useFirmSlug();
     const navigate = useNavigate();
 
     const { data: vendorsData } = useQuery({
@@ -53,8 +55,8 @@ const VendorOrderAddPage = () => {
             queryClient.invalidateQueries({ queryKey: [`/firm/${firmId}/vendor-orders/`] });
             navigate(`/dashboard/${firmId}/vendor-orders`);
         },
-        onError: (err: any) => {
-            toast.error(err?.response?.data?.message || "Failed to create order");
+        onError: (err: unknown) => {
+            toast.error(getApiErrorMessage(err, "Failed to create order"));
         },
     });
 

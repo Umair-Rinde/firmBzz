@@ -1138,7 +1138,7 @@ class RetailerOrderService:
     """Salesman orders to retailers; listed by firm; invoiced by admin via invoice API."""
 
     @staticmethod
-    def list_retailer_orders(firm_slug, params=None):
+    def list_retailer_orders(firm_slug, user, params=None):
         try:
             firm = Firm.objects.get(slug=firm_slug)
         except Firm.DoesNotExist:
@@ -1149,6 +1149,14 @@ class RetailerOrderService:
             .select_related("customer", "created_by")
             .order_by("-created_on")
         )
+
+        if user.user_type == 'FIRM_USER':
+            try:
+                firm_user = FirmUsers.objects.get(user=user, firm=firm)
+                if firm_user.role not in ['ADMIN', 'FIRM_ADMIN']:
+                    qs = qs.filter(created_by=user)
+            except FirmUsers.DoesNotExist:
+                qs = qs.filter(created_by=user)
         params = params or {}
         page_qs, count = _apply_datagrid(
             queryset=qs,

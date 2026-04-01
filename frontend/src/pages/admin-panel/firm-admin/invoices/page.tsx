@@ -1,14 +1,16 @@
 import AppBar from "@/components/ui/custom/app-bar";
 import CustomButton from "@/components/ui/custom/custom-button";
 import { Datagrid, FilterConfig } from "@/components/ui/custom/datgrid";
+import { getApiErrorMessage } from "@/config/api-error";
 import { axios } from "@/config/axios";
 import { queryClient } from "@/config/query-client";
 import { useMutation } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { Eye, Plus, Printer } from "lucide-react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { useFirmSlug } from "@/hooks/useFirmSlug";
 
 
 const STATUS_STYLE: Record<string, string> = {
@@ -57,7 +59,7 @@ const invoiceFilterConfig: FilterConfig[] = [
 ];
 
 const InvoicesPage = () => {
-    const { firmId } = useParams();
+    const firmId = useFirmSlug();
     const navigate = useNavigate();
 
     const openPrintPage = (invoiceId: string) => {
@@ -75,8 +77,8 @@ const InvoicesPage = () => {
                 window.open(`/dashboard/${firmId}/invoices/${invId}/print`, "_blank");
             });
         },
-        onError: (err: any) => {
-            toast.error(err?.response?.data?.message || "Batch print failed");
+        onError: (err: unknown) => {
+            toast.error(getApiErrorMessage(err, "Batch print failed"));
         },
     });
 

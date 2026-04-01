@@ -1,11 +1,12 @@
 import CustomButton from "@/components/ui/custom/custom-button";
 import { Drawer } from "@/components/ui/custom/custom-drawer";
 import CustomFileInput from "@/components/ui/custom/custom-file-input";
+import { getApiErrorMessage } from "@/config/api-error";
 import { axios } from "@/config/axios";
 import { queryClient } from "@/config/query-client";
 import { useMutation } from "@tanstack/react-query";
 import { Form, Formik } from "formik";
-import { useParams } from "react-router-dom";
+import { useFirmSlug } from "@/hooks/useFirmSlug";
 import { useState } from "react";
 import { toast } from "sonner";
 import * as Yup from "yup";
@@ -18,7 +19,7 @@ const BulkImportOrderDrawer = ({
     handleClose: () => void;
     open: boolean;
 }) => {
-    const { firmId } = useParams();
+    const firmId = useFirmSlug();
     const [importErrors, setImportErrors] = useState<string[]>([]);
     const [successCount, setSuccessCount] = useState<number | null>(null);
 
@@ -60,16 +61,15 @@ const BulkImportOrderDrawer = ({
                 handleClose();
             }
         },
-        onError: (resp: any) => {
-            const errorMsg = resp?.response?.data?.message;
-            const errorsList = resp?.response?.data?.errors;
-
-            if (errorsList && errorsList.length > 0) {
-                setImportErrors(errorsList);
+        onError: (resp: unknown) => {
+            const errorsList = (resp as { response?: { data?: { errors?: unknown } } })
+                ?.response?.data?.errors;
+            if (Array.isArray(errorsList) && errorsList.length > 0) {
+                setImportErrors(errorsList as string[]);
                 setSuccessCount(0);
-                toast.error(errorMsg || "Import encountered errors");
+                toast.error(getApiErrorMessage(resp, "Import encountered errors"));
             } else {
-                toast.error(errorMsg || "Something went wrong!");
+                toast.error(getApiErrorMessage(resp));
             }
         },
     });

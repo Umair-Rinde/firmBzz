@@ -2,6 +2,7 @@ import { axios } from "@/config/axios";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
+import { useFirmSlug } from "@/hooks/useFirmSlug";
 
 function numberToWords(num: number): string {
   if (num === 0) return "Zero";
@@ -32,18 +33,25 @@ const fmtDate = (d: string) =>
   new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 
 export default function PrintInvoicePage() {
-  const { firmId, id } = useParams();
+  const params = useParams();
+  const firmId = useFirmSlug();
+  const id = params.id;
   const hasPrinted = useRef(false);
   const [markingPrinted, setMarkingPrinted] = useState(false);
 
+  const invoiceUrl = firmId && id ? `/firm/${firmId}/invoices/${id}/` : null;
+  const firmUrl = firmId ? `/firm/${firmId}/` : null;
+
   const { data: invoiceData, isLoading } = useQuery({
-    queryKey: [`/firm/${firmId}/invoices/${id}`],
-    queryFn: () => axios.get(`/firm/${firmId}/invoices/${id}/`),
+    queryKey: ["print-invoice", firmId, id],
+    queryFn: () => axios.get(invoiceUrl!),
+    enabled: !!invoiceUrl,
   });
 
   const { data: firmData } = useQuery({
-    queryKey: [`/firm/${firmId}/`],
-    queryFn: () => axios.get(`/firm/${firmId}/`),
+    queryKey: ["print-firm", firmId],
+    queryFn: () => axios.get(firmUrl!),
+    enabled: !!firmUrl,
   });
 
   const { mutate: markPrinted } = useMutation({
@@ -72,6 +80,14 @@ export default function PrintInvoicePage() {
     }, 600);
     return () => clearTimeout(timer);
   }, [invoice]);
+
+  if (!firmId || !id) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-red-500 text-lg">Invalid URL — missing firm or invoice ID.</p>
+      </div>
+    );
+  }
 
   if (isLoading || !invoice) {
     return (

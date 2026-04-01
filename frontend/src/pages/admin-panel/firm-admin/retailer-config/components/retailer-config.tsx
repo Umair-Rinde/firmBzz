@@ -4,11 +4,12 @@ import CustomInput from "@/components/ui/custom/custom-input";
 import CustomFileInput from "@/components/ui/custom/custom-file-input";
 import CustomSelect from "@/components/ui/custom/custom-select";
 import { DatePickerComponent as CustomDatePicker } from "@/components/ui/custom/date-picker";
+import { getApiErrorMessage } from "@/config/api-error";
 import { axios } from "@/config/axios";
 import { queryClient } from "@/config/query-client";
 import { useMutation } from "@tanstack/react-query";
 import { Form, Formik } from "formik";
-import { useParams } from "react-router-dom";
+import { useFirmSlug } from "@/hooks/useFirmSlug";
 import { toast } from "sonner";
 import * as Yup from "yup";
 
@@ -23,7 +24,7 @@ const RetailerConfigDrawer = ({
   row?: any;
   open: boolean;
 }) => {
-  const { firmId } = useParams();
+  const firmId = useFirmSlug();
 
   //--------- validation schema -----------//
   const validationSchema = Yup.object().shape({
@@ -52,8 +53,8 @@ const RetailerConfigDrawer = ({
         queryKey: [`/firm/${firmId}/customers/`],
       });
     },
-    onError: (resp: any) => {
-      toast.error(resp?.response?.data?.message || "Something went wrong!");
+    onError: (resp: unknown) => {
+      toast.error(getApiErrorMessage(resp, "Something went wrong!"));
     },
   });
 

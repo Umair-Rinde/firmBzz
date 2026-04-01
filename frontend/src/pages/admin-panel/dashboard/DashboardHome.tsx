@@ -1,5 +1,6 @@
 import { useAuth } from "@/context/AuthContext";
 import { useCookies } from "react-cookie";
+import { useFirmSlug } from "@/hooks/useFirmSlug";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Activity, DollarSign, ArrowUpRight, ArrowDownRight, TrendingUp,
@@ -466,7 +467,7 @@ export default function DashboardHome() {
   const [cookies] = useCookies(["current_role", "firm"]);
 
   const role = cookies.current_role || user?.role;
-  const firm_slug = cookies.firm || user?.firm_slug;
+  const firm_slug = useFirmSlug();
 
   const dashboardUrl = role === "admin"
     ? "/firm/dashboard/admin/"

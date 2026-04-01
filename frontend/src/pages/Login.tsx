@@ -23,6 +23,7 @@ import { FormikInput } from "@/components/form/FormikInput";
 import * as Yup from "yup";
 import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { getApiErrorMessage } from "@/config/api-error";
 import { axios } from "@/config/axios";
 import { toast } from "sonner";
 
@@ -128,8 +129,8 @@ export default function Login() {
         });
       }
     },
-    onError: (resp: any) => {
-      toast.error(resp?.response?.data?.message || "Something went wrong!");
+    onError: (resp: unknown) => {
+      toast.error(getApiErrorMessage(resp, "Something went wrong!"));
     },
   });
 

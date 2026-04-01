@@ -2,14 +2,14 @@ import CustomButton from "@/components/ui/custom/custom-button";
 import { Drawer } from "@/components/ui/custom/custom-drawer";
 import CustomInput from "@/components/ui/custom/custom-input";
 import CustomSelect from "@/components/ui/custom/custom-select";
+import { getApiErrorMessage } from "@/config/api-error";
 import { axios } from "@/config/axios";
 import { queryClient } from "@/config/query-client";
 import { useQuery } from "@/hooks/useQuerry";
 import { useMutation } from "@tanstack/react-query";
 import { Form, Formik, useFormikContext } from "formik";
 import { useEffect, useMemo, useState } from "react";
-import { useCookies } from "react-cookie";
-import { useParams } from "react-router-dom";
+import { useFirmSlug } from "@/hooks/useFirmSlug";
 import { toast } from "sonner";
 import * as Yup from "yup";
 
@@ -103,9 +103,7 @@ const VendorProductDrawer = ({
   row?: any;
   open: boolean;
 }) => {
-  const { firmId } = useParams();
-  const [cookies] = useCookies(["firm"]);
-  const slug = firmId || cookies.firm;
+  const slug = useFirmSlug();
 
   const validationSchema = useMemo(
     () =>
@@ -150,8 +148,8 @@ const VendorProductDrawer = ({
       handleClose();
       queryClient.invalidateQueries({ queryKey: [productsListKey] });
     },
-    onError: (resp: any) => {
-      toast.error(resp?.response?.data?.message || "Something went wrong!");
+    onError: (resp: unknown) => {
+      toast.error(getApiErrorMessage(resp, "Something went wrong!"));
     },
   });
 

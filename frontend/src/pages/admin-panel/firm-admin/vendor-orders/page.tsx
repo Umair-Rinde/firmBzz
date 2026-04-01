@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { useFirmSlug } from "@/hooks/useFirmSlug";
 import { Datagrid, FilterConfig } from "@/components/ui/custom/datgrid";
 import CustomButton from "@/components/ui/custom/custom-button";
 import { Plus, PackageCheck, Upload } from "lucide-react";
@@ -31,7 +32,7 @@ const vendorOrderFilterConfig: FilterConfig[] = [
 ];
 
 export default function VendorOrderListPage() {
-    const { firmId } = useParams();
+    const firmId = useFirmSlug();
     const navigate = useNavigate();
     const [openReceiveDrawer, setOpenReceiveDrawer] = useState(false);
     const [bulkImportOpen, setBulkImportOpen] = useState(false);

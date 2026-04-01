@@ -1,3 +1,4 @@
+import { getApiErrorMessage } from "@/config/api-error";
 import { queryClient } from "@/config/query-client";
 import { keepPreviousData } from "@tanstack/react-query";
 import {
@@ -452,14 +453,10 @@ export const Datagrid = ({
       );
       setExcelloading(false);
       setIsDownloading(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       setExcelloading(false);
       setIsDownloading(false);
-      if (error?.response?.data?.msg) {
-        toast.error(error.response.data.msg);
-      } else {
-        toast.error("Something went wrong");
-      }
+      toast.error(getApiErrorMessage(error));
     }
   };
 

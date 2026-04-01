@@ -1,5 +1,6 @@
 import AppBar from "@/components/ui/custom/app-bar";
 import CustomButton from "@/components/ui/custom/custom-button";
+import { getApiErrorMessage } from "@/config/api-error";
 import { axios } from "@/config/axios";
 import { queryClient } from "@/config/query-client";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useFirmSlug } from "@/hooks/useFirmSlug";
 import { toast } from "sonner";
 
 const PAYMENT_MODES = [
@@ -119,8 +121,8 @@ function PaymentSection({
       setReference("");
       setNote("");
     },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || "Failed to record payment");
+    onError: (err: unknown) => {
+      toast.error(getApiErrorMessage(err, "Failed to record payment"));
     },
   });
 
@@ -272,8 +274,8 @@ function StatusTransitionBar({ invoice, firmId, invoiceId }: { invoice: any; fir
       queryClient.invalidateQueries({ queryKey: [`/firm/${firmId}/invoices/${invoiceId}`] });
       setShowDropdown(false);
     },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || "Failed to update status");
+    onError: (err: unknown) => {
+      toast.error(getApiErrorMessage(err, "Failed to update status"));
     },
   });
 
@@ -337,7 +339,8 @@ function StatusTransitionBar({ invoice, firmId, invoiceId }: { invoice: any; fir
 }
 
 const InvoiceEditPage = () => {
-  const { firmId, id } = useParams();
+  const { id } = useParams();
+  const firmId = useFirmSlug();
   const navigate = useNavigate();
   const [rejectionNote, setRejectionNote] = useState("");
 
@@ -356,8 +359,8 @@ const InvoiceEditPage = () => {
       toast.success("Invoice approved successfully");
       queryClient.invalidateQueries({ queryKey: [invoiceQueryKey] });
     },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || "Failed to approve invoice");
+    onError: (err: unknown) => {
+      toast.error(getApiErrorMessage(err, "Failed to approve invoice"));
     },
   });
 
@@ -369,8 +372,8 @@ const InvoiceEditPage = () => {
       setRejectionNote("");
       queryClient.invalidateQueries({ queryKey: [invoiceQueryKey] });
     },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || "Failed to request changes");
+    onError: (err: unknown) => {
+      toast.error(getApiErrorMessage(err, "Failed to request changes"));
     },
   });
 
@@ -413,16 +416,14 @@ const InvoiceEditPage = () => {
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
-          {canPrint && (
-            <CustomButton
-              variant="outline"
-              className="gap-2 border-blue-200 text-blue-700 hover:bg-blue-50"
-              onClick={openPrintPage}
-            >
-              <Printer className="w-4 h-4" />
-              Print Invoice
-            </CustomButton>
-          )}
+          <CustomButton
+            variant="outline"
+            className="gap-2 border-blue-200 text-blue-700 hover:bg-blue-50"
+            onClick={openPrintPage}
+          >
+            <Printer className="w-4 h-4" />
+            Print Invoice
+          </CustomButton>
 
           <StatusTransitionBar invoice={invoice} firmId={firmId!} invoiceId={id!} />
         </div>

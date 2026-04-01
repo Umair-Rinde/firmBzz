@@ -1,6 +1,7 @@
 import AppBar from "@/components/ui/custom/app-bar";
 import CustomButton from "@/components/ui/custom/custom-button";
 import SearchableSelect from "@/components/ui/custom/searchable-select";
+import { getApiErrorMessage } from "@/config/api-error";
 import { axios } from "@/config/axios";
 import { queryClient } from "@/config/query-client";
 import { useQuery } from "@/hooks/useQuerry";
@@ -8,7 +9,8 @@ import { useMutation } from "@tanstack/react-query";
 import { Form, Formik, useFormikContext } from "formik";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { useFirmSlug } from "@/hooks/useFirmSlug";
 import { toast } from "sonner";
 import * as Yup from "yup";
 
@@ -349,8 +351,8 @@ function InvoiceFormBody({
       queryClient.invalidateQueries({ queryKey: [`/firm/${firmId}/invoices/`] });
       navigate(`/dashboard/${firmId}/invoices/${res.data.data.id}`);
     },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || "Failed to create invoice");
+    onError: (err: unknown) => {
+      toast.error(getApiErrorMessage(err, "Failed to create invoice"));
     },
   });
 
@@ -546,7 +548,7 @@ function InvoiceFormInner({
 }
 
 const InvoiceCreatePage = () => {
-  const { firmId } = useParams();
+  const firmId = useFirmSlug();
   const navigate = useNavigate();
 
   const { data: customersRaw } = useQuery<any>({

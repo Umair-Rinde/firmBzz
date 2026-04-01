@@ -2,6 +2,7 @@ import CustomButton from "@/components/ui/custom/custom-button";
 import { Drawer } from "@/components/ui/custom/custom-drawer";
 import CustomInput from "@/components/ui/custom/custom-input";
 import SearchableSelect from "@/components/ui/custom/searchable-select";
+import { getApiErrorMessage } from "@/config/api-error";
 import { axios } from "@/config/axios";
 import { queryClient } from "@/config/query-client";
 import { useQuery } from "@/hooks/useQuerry";
@@ -9,8 +10,7 @@ import { useMutation, useQuery as useTanQuery } from "@tanstack/react-query";
 import { FieldArray, Form, Formik, useFormikContext } from "formik";
 import { AlertTriangle, ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { useCookies } from "react-cookie";
-import { useParams } from "react-router-dom";
+import { useFirmSlug } from "@/hooks/useFirmSlug";
 import { toast } from "sonner";
 import * as Yup from "yup";
 
@@ -305,9 +305,7 @@ const RetailerOrderDrawer = ({
   handleClose: () => void;
   open: boolean;
 }) => {
-  const { firmId } = useParams();
-  const [cookies] = useCookies(["firm"]);
-  const slug = firmId || cookies.firm;
+  const slug = useFirmSlug();
 
   const { data: customersRaw } = useQuery<any>({
     queryKey: [`/firm/${slug}/customers/`, { limit: 500 }],
@@ -348,8 +346,8 @@ const RetailerOrderDrawer = ({
       });
       handleClose();
     },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || "Failed to create order");
+    onError: (err: unknown) => {
+      toast.error(getApiErrorMessage(err, "Failed to create order"));
     },
   });
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useFirmSlug } from "@/hooks/useFirmSlug";
 import { Datagrid, FilterConfig } from "@/components/ui/custom/datgrid";
 import CustomButton from "@/components/ui/custom/custom-button";
 import { Plus } from "lucide-react";
@@ -30,7 +30,7 @@ const ROLE_COLORS: Record<string, string> = {
 };
 
 export default function FirmUserManagementPage() {
-    const { firmId } = useParams();
+    const firmId = useFirmSlug();
     const [openDrawer, setOpenDrawer] = useState(false);
     const [selectedUser, setSelectedUser] = useState<any>(null);
 

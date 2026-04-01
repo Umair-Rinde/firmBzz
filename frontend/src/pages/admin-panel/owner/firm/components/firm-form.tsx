@@ -1,6 +1,7 @@
 import CustomButton from "@/components/ui/custom/custom-button";
 import { Drawer } from "@/components/ui/custom/custom-drawer";
 import CustomInput from "@/components/ui/custom/custom-input";
+import { getApiErrorMessage } from "@/config/api-error";
 import { axios } from "@/config/axios";
 import { queryClient } from "@/config/query-client";
 import { useQuery } from "@/hooks/useQuerry";
@@ -39,8 +40,8 @@ const FirmDrawer = ({
         queryKey: [``],
       });
     },
-    onError: (resp: any) => {
-      toast.error(resp?.response?.data?.message || "Something went wrong!");
+    onError: (resp: unknown) => {
+      toast.error(getApiErrorMessage(resp, "Something went wrong!"));
     },
   });
 

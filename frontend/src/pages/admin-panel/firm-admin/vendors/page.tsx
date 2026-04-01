@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useFirmSlug } from "@/hooks/useFirmSlug";
 import { Datagrid } from "@/components/ui/custom/datgrid";
 import CustomButton from "@/components/ui/custom/custom-button";
 import { Plus } from "lucide-react";
@@ -9,7 +9,7 @@ import { DeleteItem } from "@/components/ui/custom/delete-dialog";
 import VendorDrawer from "./components/vendor-drawer";
 
 export default function VendorListPage() {
-    const { firmId } = useParams();
+    const firmId = useFirmSlug();
     const [openDrawer, setOpenDrawer] = useState(false);
     const [selectedVendor, setSelectedVendor] = useState<any>(null);
 

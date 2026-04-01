@@ -6,7 +6,7 @@ import { FaPlus, FaUpload } from "react-icons/fa";
 import { useState } from "react";
 import VendorProductDrawer from "./components/vendor-product";
 import BulkImportDrawer from "./components/bulk-import-drawer";
-import { useCookies } from "react-cookie";
+import { useFirmSlug } from "@/hooks/useFirmSlug";
 import { LuPen } from "react-icons/lu";
 import { DeleteItem } from "@/components/ui/custom/delete-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -116,10 +116,10 @@ export default function FirmProductPage() {
             </span>
 
             <DeleteItem
-              endPoint={`/firm/${cookies.firm}/products/${row.original.id}/`}
+              endPoint={`/firm/${slug}/products/${row.original.id}/`}
               itemName={`${row?.original?.name}`}
               title="Delete Product"
-              refetchUrl={[`/firm/${cookies.firm}/products/`]}
+              refetchUrl={[`/firm/${slug}/products/`]}
             />
           </div>
         );
@@ -131,7 +131,7 @@ export default function FirmProductPage() {
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [selectedRow, setSelectedRow] = useState<any>(null);
 
-  const [cookies] = useCookies(["current_role", "firm"]);
+  const slug = useFirmSlug();
 
   const handleClose = () => {
     setOpen(false);
@@ -142,7 +142,7 @@ export default function FirmProductPage() {
       <Datagrid
         columns={columns}
         title="Products"
-        url={`/firm/${cookies.firm}/products/`}
+        url={slug ? `/firm/${slug}/products/` : undefined}
         filterConfig={productFilterConfig}
         extraButtons={
           <div className="flex gap-4">

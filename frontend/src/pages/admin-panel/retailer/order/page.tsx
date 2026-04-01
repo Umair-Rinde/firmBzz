@@ -4,13 +4,12 @@ import AppBar from "@/components/ui/custom/app-bar";
 import CustomButton from "@/components/ui/custom/custom-button";
 import { FaPlus } from "react-icons/fa";
 import { useState } from "react";
-import { useCookies } from "react-cookie";
+import { useFirmSlug } from "@/hooks/useFirmSlug";
 import RetailerOrderDrawer from "@/pages/admin-panel/firm-admin/retailer-orders/components/retailer-order-drawer";
 import { useNavigate } from "react-router-dom";
 
 export default function RetailerOrderPage() {
-  const [cookies] = useCookies(["firm"]);
-  const slug = cookies.firm;
+  const slug = useFirmSlug();
   const navigate = useNavigate();
 
   const columns: ColumnDef<any>[] = [

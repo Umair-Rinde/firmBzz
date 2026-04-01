@@ -1,3 +1,4 @@
+import { getApiErrorMessage } from "@/config/api-error";
 import { axios } from "@/config/axios";
 import { queryClient } from "@/config/query-client";
 import { useMutation } from "@tanstack/react-query";
@@ -26,8 +27,8 @@ export const DeleteItem = (props: Props) => {
           : data.data.message || "Item deleted successfully",
       );
     },
-    onError: (resp: any) => {
-      toast.error(resp?.response?.data?.message || "Something went wrong!");
+    onError: (resp: unknown) => {
+      toast.error(getApiErrorMessage(resp, "Something went wrong!"));
     },
   });
 

@@ -5,7 +5,7 @@ import CustomButton from "@/components/ui/custom/custom-button";
 import { FaPlus } from "react-icons/fa";
 import { useState } from "react";
 import RetailerConfigDrawer from "./components/retailer-config";
-import { useCookies } from "react-cookie";
+import { useFirmSlug } from "@/hooks/useFirmSlug";
 import { LuPen } from "react-icons/lu";
 import { DeleteItem } from "@/components/ui/custom/delete-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -30,7 +30,7 @@ const retailerFilterConfig: FilterConfig[] = [
 ];
 
 export default function RetailerConfigPage() {
-  const [cookies] = useCookies(["firm"]);
+  const slug = useFirmSlug();
   const [open, setOpen] = useState(false);
   const [selectedRow, setSelectedRow] = useState<any>(null);
 
@@ -89,10 +89,10 @@ export default function RetailerConfigPage() {
             </span>
 
             <DeleteItem
-              endPoint={`/firm/${cookies.firm}/customers/${row.original.id}/`}
+              endPoint={`/firm/${slug}/customers/${row.original.id}/`}
               itemName={`${row?.original?.business_name}`}
               title="Delete Retailer"
-              refetchUrl={[`/firm/${cookies.firm}/customers/`]}
+              refetchUrl={[`/firm/${slug}/customers/`]}
             />
           </div>
         );
@@ -114,7 +114,7 @@ export default function RetailerConfigPage() {
       <Datagrid
         columns={columns}
         title="Retailers"
-        url={`/firm/${cookies.firm}/customers/`}
+        url={slug ? `/firm/${slug}/customers/` : undefined}
         filterConfig={retailerFilterConfig}
         extraButtons={
           <CustomButton onClick={() => setOpen(true)}>

@@ -55,6 +55,16 @@ const App = () => (
               <Route path="/contact" element={<Contact />} />
               <Route path="/login" element={<Login />} />
 
+              {/* Print pages - outside DashboardLayout for clean print */}
+              <Route
+                path="/dashboard/:firmId/invoices/:id/print"
+                element={
+                  <ProtectedRoute>
+                    <PrintInvoicePage />
+                  </ProtectedRoute>
+                }
+              />
+
               {/* Protected Dashboard Routes */}
               <Route
                 path="/dashboard"
@@ -203,16 +213,6 @@ const App = () => (
                   }
                 />
               </Route>
-
-              {/* Print pages - outside DashboardLayout for clean print */}
-              <Route
-                path="/dashboard/:firmId/invoices/:id/print"
-                element={
-                  <ProtectedRoute>
-                    <PrintInvoicePage />
-                  </ProtectedRoute>
-                }
-              />
 
               <Route path="*" element={<NotFound />} />
             </Routes>

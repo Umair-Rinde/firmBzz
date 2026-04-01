@@ -4,8 +4,7 @@ import AppBar from "@/components/ui/custom/app-bar";
 import CustomButton from "@/components/ui/custom/custom-button";
 import { FaPlus } from "react-icons/fa";
 import { useState } from "react";
-import { useParams } from "react-router-dom";
-import { useCookies } from "react-cookie";
+import { useFirmSlug } from "@/hooks/useFirmSlug";
 import RetailerOrderDrawer from "./components/retailer-order-drawer";
 
 const retailerOrderFilterConfig: FilterConfig[] = [
@@ -22,9 +21,7 @@ const retailerOrderFilterConfig: FilterConfig[] = [
 ];
 
 export default function FirmRetailerOrdersPage() {
-  const { firmId } = useParams();
-  const [cookies] = useCookies(["firm"]);
-  const slug = firmId || cookies.firm;
+  const slug = useFirmSlug();
 
   const columns: ColumnDef<any>[] = [
     {
