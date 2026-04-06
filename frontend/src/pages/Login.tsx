@@ -21,7 +21,7 @@ import { LockKeyhole } from "lucide-react";
 import { Formik, Form } from "formik";
 import { FormikInput } from "@/components/form/FormikInput";
 import * as Yup from "yup";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { getApiErrorMessage } from "@/config/api-error";
 import { axios } from "@/config/axios";
@@ -37,6 +37,7 @@ export default function Login() {
   const { login, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
   const [pendingCreds, setPendingCreds] = useState<{ email: string; password: string } | null>(null);
+  const lastSubmittedCreds = useRef<{ email: string; password: string } | null>(null);
   const [selectedFirmId, setSelectedFirmId] = useState<string>("");
   const [availableFirms, setAvailableFirms] = useState<Array<{ id: string; name: string; slug: string; role: string }>>([]);
 
@@ -98,7 +99,11 @@ export default function Login() {
 
       if (userData?.requires_firm_selection) {
         setAvailableFirms(userData?.firms || []);
-        setPendingCreds({ email: userData?.email || pendingCreds?.email || "", password: pendingCreds?.password || "" });
+        const c = lastSubmittedCreds.current;
+        setPendingCreds({
+          email: userData?.email || c?.email || "",
+          password: c?.password || "",
+        });
         toast.info("Select a firm to continue");
         return;
       }
@@ -135,7 +140,9 @@ export default function Login() {
       }
     },
     onError: (resp: unknown) => {
-      toast.error(getApiErrorMessage(resp, "Something went wrong!"));
+      const message = getApiErrorMessage(resp, "Something went wrong!");
+      console.error("[Login] request failed", resp);
+      toast.error(message);
     },
   });
 
@@ -161,7 +168,7 @@ export default function Login() {
               initialValues={{ email: "", password: "" }}
               validationSchema={LoginSchema}
               onSubmit={(values) => {
-                setPendingCreds(values);
+                lastSubmittedCreds.current = values;
                 mutate(values);
               }}
             >
@@ -216,6 +223,7 @@ export default function Login() {
                   disabled={isPending}
                   onClick={() => {
                     setPendingCreds(null);
+                    lastSubmittedCreds.current = null;
                     setSelectedFirmId("");
                     setAvailableFirms([]);
                   }}

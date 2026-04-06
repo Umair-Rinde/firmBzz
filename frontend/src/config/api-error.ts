@@ -7,13 +7,21 @@ export function getApiErrorMessage(
   fallback = "Something went wrong"
 ): string {
   const err = error as {
-    response?: { data?: unknown };
+    response?: { data?: unknown; status?: number };
     message?: string;
+    code?: string;
   };
   const data = err?.response?.data;
 
   if (data == null || typeof data !== "object") {
-    if (err?.message && typeof err.message === "string" && err.message !== "Network Error") {
+    if (err?.message === "Network Error" || err?.code === "ERR_NETWORK") {
+      return (
+        "Cannot reach the API. Common causes: (1) VITE_API_URL missing or still pointing at localhost after deploy—set your public API URL in Vercel env and redeploy; " +
+        "(2) HTTPS page calling an HTTP API (mixed content)—mobile browsers block this; use https:// for the API; " +
+        "(3) API server down or blocked by firewall."
+      );
+    }
+    if (err?.message && typeof err.message === "string") {
       return err.message;
     }
     return fallback;
