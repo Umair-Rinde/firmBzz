@@ -1,3 +1,4 @@
+import { API_ORIGIN } from "@/config/api-urls";
 import { getApiErrorMessage } from "@/config/api-error";
 import { queryClient } from "@/config/query-client";
 import { keepPreviousData } from "@tanstack/react-query";
@@ -430,7 +431,7 @@ export const Datagrid = ({
 
   function downloadFile(dlUrl: string, fileName: string) {
     const a = document.createElement("a");
-    a.href = import.meta.env.VITE_API_BASE_URL + dlUrl;
+    a.href = API_ORIGIN + dlUrl;
     a.download = fileName;
     document.body.appendChild(a);
     a.click();

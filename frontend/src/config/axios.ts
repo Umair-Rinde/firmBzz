@@ -1,26 +1,22 @@
 import OgAxios from "axios";
 import { toast } from "sonner";
 import { queryClient } from "./query-client";
+import { API_URL } from "./api-urls";
 
-const rawBase = (import.meta.env.VITE_API_URL as string | undefined)?.trim() ?? "";
-const baseURL = rawBase.replace(/\/$/, "");
+const baseURL = API_URL;
 
-if (!baseURL) {
-  console.error(
-    "[API] VITE_API_URL is not set. Set it in Vercel Project → Settings → Environment Variables and redeploy.",
-  );
-} else if (import.meta.env.PROD && typeof window !== "undefined") {
+if (import.meta.env.PROD && typeof window !== "undefined") {
   const pageHttps = window.location.protocol === "https:";
   const apiHttp = baseURL.startsWith("http://");
   if (pageHttps && apiHttp) {
     console.error(
-      "[API] Mixed content: the app is on HTTPS but VITE_API_URL is HTTP. Mobile browsers will block these requests. Use an HTTPS API URL.",
+      "[API] Mixed content: the app is on HTTPS but the API URL is HTTP. Mobile browsers will block these requests.",
     );
   }
 }
 
 export const axios = OgAxios.create({
-  baseURL: baseURL || undefined,
+  baseURL,
   // Bearer token in Authorization header; no session cookies — keep default false
   withCredentials: false,
 });
