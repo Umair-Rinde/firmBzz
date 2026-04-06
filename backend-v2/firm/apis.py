@@ -12,6 +12,7 @@ from .models import (
     ProductBatch,
     RetailerOrder,
     Payment,
+    StockLedgerEntry,
 )
 from accounts.models import FirmUsers
 from .serializers import (
@@ -30,8 +31,11 @@ from .serializers import (
     RetailerOrderCreateSerializer,
     PaymentSerializer,
     PaymentCreateSerializer,
+    StockManualAdjustSerializer,
 )
-from .pricing import effective_unit_rate
+from .pricing import effective_unit_rate, allocate_batches_fefo
+from .choices import StockLedgerEntryType
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from portal.base import BaseResponse
 from django.db import transaction
 from django.utils import timezone
@@ -607,7 +611,7 @@ class VendorOrderService:
             )
     
     @staticmethod
-    def receive_order(firm_slug, order_id, data):
+    def receive_order(firm_slug, order_id, data, user=None):
         """Mark order as received and create product batches"""
         try:
             firm = Firm.objects.get(slug=firm_slug)
@@ -656,7 +660,19 @@ class VendorOrderService:
                 batch = item.create_product_batch()
                 if batch:
                     batches_created.append(batch.id)
-            
+                    qty = item.quantity_received or 0
+                    if qty > 0:
+                        StockLedgerEntry.objects.create(
+                            firm=firm,
+                            product=item.product,
+                            product_batch=batch,
+                            quantity_delta=qty,
+                            entry_type=StockLedgerEntryType.VENDOR_RECEIPT,
+                            vendor_order_item=item,
+                            created_by=user,
+                            note=f"Vendor order {order.order_number}",
+                        )
+
             response_serializer = VendorOrderSerializer(order)
             return BaseResponse(
                 message=f"Order received successfully. {len(batches_created)} product batch(es) created.",
@@ -1872,3 +1888,202 @@ class PaymentService:
             "invoices": rows,
         }
         return BaseResponse(data=data, status=200)
+
+
+class StockService:
+    @staticmethod
+    def list_stock(firm_slug, params):
+        try:
+            firm = Firm.objects.get(slug=firm_slug)
+        except Firm.DoesNotExist:
+            return BaseResponse(success=False, message="Firm not found", status=404)
+
+        qs = Product.objects.filter(firm=firm).order_by("name")
+        params = params or {}
+        page_qs, count = _apply_datagrid(
+            queryset=qs,
+            model=Product,
+            params=params,
+            extra_search_fields=["name", "product_code"],
+            ignore_fields=["id", "firm", "slug", "description", "image"],
+            filter_fields=[
+                {"param": "is_active", "field": "is_active", "type": "bool"},
+                {"param": "product", "field": "id"},
+            ],
+        )
+        rows = []
+        for p in page_qs:
+            total = p.batches.aggregate(s=Sum("quantity"))["s"] or 0
+            batches = [
+                {
+                    "id": str(b.id),
+                    "expiry_date": b.expiry_date.isoformat() if b.expiry_date else None,
+                    "quantity": b.quantity,
+                }
+                for b in p.batches.filter(quantity__gt=0).order_by(
+                    F("expiry_date").asc(nulls_last=True), "created_on"
+                )
+            ]
+            rows.append(
+                {
+                    "id": str(p.id),
+                    "product_code": p.product_code,
+                    "name": p.name,
+                    "total_quantity": total,
+                    "batches": batches,
+                }
+            )
+        return BaseResponse(data={"rows": rows, "count": count}, status=200)
+
+    @staticmethod
+    def list_ledger(firm_slug, params):
+        try:
+            firm = Firm.objects.get(slug=firm_slug)
+        except Firm.DoesNotExist:
+            return BaseResponse(success=False, message="Firm not found", status=404)
+
+        qs = StockLedgerEntry.objects.filter(firm=firm).select_related(
+            "product",
+            "product_batch",
+            "created_by",
+            "vendor_order_item__order",
+            "invoice_item__invoice",
+        )
+        params = params or {}
+        page_qs, count = _apply_datagrid(
+            queryset=qs,
+            model=StockLedgerEntry,
+            params=params,
+            extra_search_fields=["product__name", "product__product_code", "note"],
+            ignore_fields=["id"],
+            filter_fields=[
+                {"param": "entry_type", "field": "entry_type"},
+                {"param": "product", "field": "product_id"},
+            ],
+        )
+        rows = []
+        for e in page_qs:
+            ref = ""
+            if e.vendor_order_item_id and e.vendor_order_item:
+                ref = f"Vendor order {e.vendor_order_item.order.order_number}"
+            elif e.invoice_item_id and e.invoice_item:
+                inv = e.invoice_item.invoice
+                ref = f"Invoice {inv.invoice_number or inv.slug}"
+
+            batch_exp = None
+            if e.product_batch and e.product_batch.expiry_date:
+                batch_exp = e.product_batch.expiry_date.isoformat()
+
+            rows.append(
+                {
+                    "id": str(e.id),
+                    "created_on": e.created_on.isoformat() if e.created_on else None,
+                    "product_name": e.product.name,
+                    "product_code": e.product.product_code,
+                    "quantity_delta": e.quantity_delta,
+                    "entry_type": e.entry_type,
+                    "entry_type_display": e.get_entry_type_display(),
+                    "manual_reason": e.manual_reason or "",
+                    "manual_reason_display": (
+                        e.get_manual_reason_display() if e.manual_reason else ""
+                    ),
+                    "batch_id": str(e.product_batch_id) if e.product_batch_id else None,
+                    "batch_expiry": batch_exp,
+                    "created_by_name": (e.created_by.full_name if e.created_by else "") or "—",
+                    "note": e.note or "",
+                    "reference": ref,
+                }
+            )
+        return BaseResponse(data={"rows": rows, "count": count}, status=200)
+
+    @staticmethod
+    def manual_adjust(firm_slug, data, user):
+        try:
+            firm = Firm.objects.get(slug=firm_slug)
+        except Firm.DoesNotExist:
+            return BaseResponse(success=False, message="Firm not found", status=404)
+
+        serializer = StockManualAdjustSerializer(data=data)
+        if not serializer.is_valid():
+            return BaseResponse(
+                success=False, message="Invalid data", errors=serializer.errors, status=400
+            )
+
+        vd = serializer.validated_data
+        product = vd["product"]
+        if product.firm_id != firm.id:
+            return BaseResponse(
+                success=False, message="Product does not belong to this firm", status=400
+            )
+
+        direction = vd["direction"]
+        qty = vd["quantity"]
+        note = vd.get("note") or ""
+        reason = vd["manual_reason"]
+
+        with transaction.atomic():
+            if direction == "in":
+                exp = vd.get("expiry_date")
+                batch, _ = ProductBatch.objects.get_or_create(
+                    product=product,
+                    expiry_date=exp,
+                    defaults={"quantity": 0},
+                )
+                batch.quantity += qty
+                batch.save(update_fields=["quantity", "updated_on"])
+                StockLedgerEntry.objects.create(
+                    firm=firm,
+                    product=product,
+                    product_batch=batch,
+                    quantity_delta=qty,
+                    entry_type=StockLedgerEntryType.MANUAL,
+                    manual_reason=reason,
+                    note=note,
+                    created_by=user,
+                )
+            else:
+                specified = vd.get("product_batch")
+                if specified:
+                    if specified.product_id != product.id:
+                        return BaseResponse(
+                            success=False,
+                            message="Selected batch does not match the product",
+                            status=400,
+                        )
+                    if specified.quantity < qty:
+                        return BaseResponse(
+                            success=False,
+                            message=f"Not enough stock in batch (have {specified.quantity})",
+                            status=400,
+                        )
+                    allocations = [(specified, qty)]
+                else:
+                    try:
+                        allocations = allocate_batches_fefo(product, qty)
+                    except DRFValidationError as ex:
+                        detail = ex.detail
+                        if isinstance(detail, list):
+                            msg = str(detail[0])
+                        else:
+                            msg = str(detail)
+                        return BaseResponse(success=False, message=msg, status=400)
+
+                for batch, take in allocations:
+                    batch.quantity -= take
+                    batch.save(update_fields=["quantity", "updated_on"])
+                    StockLedgerEntry.objects.create(
+                        firm=firm,
+                        product=product,
+                        product_batch=batch,
+                        quantity_delta=-take,
+                        entry_type=StockLedgerEntryType.MANUAL,
+                        manual_reason=reason,
+                        note=note,
+                        created_by=user,
+                    )
+
+        return BaseResponse(
+            message="Stock adjusted",
+            data={"product": str(product.id), "direction": direction, "quantity": qty},
+            status=200,
+        )

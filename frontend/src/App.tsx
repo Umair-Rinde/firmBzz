@@ -36,6 +36,7 @@ import InvoiceCreatePage from "./pages/admin-panel/firm-admin/invoices/create-in
 import InvoiceEditPage from "./pages/admin-panel/firm-admin/invoices/edit-invoice";
 import PrintInvoicePage from "./pages/admin-panel/firm-admin/invoices/print-invoice";
 import FirmRetailerOrdersPage from "./pages/admin-panel/firm-admin/retailer-orders/page";
+import StockManagerPage from "./pages/admin-panel/firm-admin/stock-manager/page";
 
 const queryClient = new QueryClient();
 
@@ -173,6 +174,14 @@ const App = () => (
                   element={
                     <ProtectedRoute allowedRoles={["firm_admin", "admin"]}>
                       <InvoicesPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path=":firmId/stock-manager"
+                  element={
+                    <ProtectedRoute allowedRoles={["firm_admin", "admin"]}>
+                      <StockManagerPage />
                     </ProtectedRoute>
                   }
                 />

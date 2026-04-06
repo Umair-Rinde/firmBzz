@@ -39,8 +39,11 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Map backend roles to frontend roles
-const mapBackendRoleToFrontend = (userType: string, firmRole?: string): UserRole => {
+/** Maps backend user_type and per-firm role to dashboard role / cookie value. */
+export const mapBackendRoleToFrontend = (
+  userType: string,
+  firmRole?: string,
+): UserRole => {
   if (userType === "ADMIN") {
     return "admin";
   }
@@ -50,15 +53,17 @@ const mapBackendRoleToFrontend = (userType: string, firmRole?: string): UserRole
       case "FIRM_ADMIN":
         return "firm_admin";
       case "SUPER_SELLER":
+      case "SUPERSELLER_USER":
         return "super_retailer";
       case "DISTRIBUTOR":
+      case "DISTRIBUTOR_USER":
         return "distributor";
       default:
-        return "firm_admin"; // Default fallback
+        return "firm_admin";
     }
   }
 
-  return "firm_admin"; // Default fallback
+  return "firm_admin";
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {

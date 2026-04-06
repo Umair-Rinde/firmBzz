@@ -471,6 +471,63 @@ class InvoiceItem(BaseModel):
         return self.quantity * self.rate
 
 
+class StockLedgerEntry(BaseModel):
+    """
+    Every change to ProductBatch.quantity is recorded here: manual adjustments,
+    vendor receipts, and invoice (sale) allocations. Use for audit trail.
+    """
+
+    from .choices import StockLedgerEntryType, StockManualReason
+
+    firm = models.ForeignKey(Firm, on_delete=models.CASCADE, related_name="stock_ledger_entries")
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="stock_ledger_entries")
+    product_batch = models.ForeignKey(
+        ProductBatch,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="stock_ledger_entries",
+    )
+    quantity_delta = models.IntegerField(
+        help_text="Positive = stock in, negative = stock out",
+    )
+    entry_type = models.CharField(max_length=30, choices=StockLedgerEntryType.choices)
+    manual_reason = models.CharField(
+        max_length=30,
+        choices=StockManualReason.choices,
+        blank=True,
+        null=True,
+    )
+    vendor_order_item = models.ForeignKey(
+        VendorOrderItem,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="stock_ledger_entries",
+    )
+    invoice_item = models.ForeignKey(
+        InvoiceItem,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="stock_ledger_entries",
+    )
+    note = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="stock_ledger_entries",
+    )
+
+    class Meta:
+        ordering = ["-created_on"]
+
+    def __str__(self):
+        return f"{self.get_entry_type_display()} {self.product.name} Δ{self.quantity_delta}"
+
+
 class Payment(BaseModel):
     """
     Payment against an invoice. Supports partial payments — multiple Payment

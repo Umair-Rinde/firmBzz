@@ -205,7 +205,9 @@ class VendorOrderReceiveAPIView(APIView):
         denied = _enforce_firm_context(request, slug)
         if denied:
             return denied
-        return apis.VendorOrderService.receive_order(slug, order_id, request.data)
+        return apis.VendorOrderService.receive_order(
+            slug, order_id, request.data, request.user
+        )
 
 class VendorOrderBulkImportAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -707,3 +709,54 @@ class CustomerOutstandingAPIView(APIView):
         if denied:
             return denied
         return apis.PaymentService.customer_outstanding(slug, customer_id)
+
+
+class StockListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    schema = AutoSchema()
+
+    @extend_schema(
+        summary="List stock by product",
+        description="Products with total quantity and non-empty batches (FEFO order).",
+        tags=["Stock"],
+    )
+    def get(self, request, slug):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
+        return apis.StockService.list_stock(slug, request.GET)
+
+
+class StockLedgerListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    schema = AutoSchema()
+
+    @extend_schema(
+        summary="Stock movement log",
+        description="Audit trail: manual adjustments, vendor receipts, invoice sales.",
+        tags=["Stock"],
+    )
+    def get(self, request, slug):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
+        return apis.StockService.list_ledger(slug, request.GET)
+
+
+class StockManualAdjustAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    schema = AutoSchema()
+
+    @extend_schema(
+        summary="Manual stock adjustment",
+        description=(
+            "Add or remove stock with a reason. Stock in: optional expiry_date merges into "
+            "that batch. Stock out: optional product_batch; otherwise FEFO."
+        ),
+        tags=["Stock"],
+    )
+    def post(self, request, slug):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
+        return apis.StockService.manual_adjust(slug, request.data, request.user)

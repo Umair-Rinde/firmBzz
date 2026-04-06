@@ -1,4 +1,7 @@
-import { useAuth } from "@/context/AuthContext";
+import { useAuth, mapBackendRoleToFrontend } from "@/context/AuthContext";
+import { axios } from "@/config/axios";
+import { getApiErrorMessage } from "@/config/api-error";
+import { toast } from "sonner";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useCookies } from "react-cookie";
 import { Button } from "@/components/ui/button";
@@ -13,6 +16,7 @@ import {
   Menu,
   CloudCog,
   ClipboardList,
+  Warehouse,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -32,6 +36,13 @@ import { Separator } from "../ui/separator";
 import { TbLogout } from "react-icons/tb";
 import { CustomDialog } from "../ui/custom/dialog";
 import { Label } from "../ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 import CustomButton from "../ui/custom/custom-button";
 import { FirmInterface } from "@/interfaces/firm";
 import { useQuery } from "@/hooks/useQuerry";
@@ -39,7 +50,7 @@ import CustomSelect from "../ui/custom/custom-select";
 import { Form, Formik } from "formik";
 
 export default function DashboardLayout() {
-  const { user, logout } = useAuth();
+  const { user, logout, login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile();
@@ -50,6 +61,9 @@ export default function DashboardLayout() {
   ]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [openRoleDialog, setOpenRoleDialog] = useState(false);
+  const [openFirmSwitchDialog, setOpenFirmSwitchDialog] = useState(false);
+  const [switchFirmId, setSwitchFirmId] = useState("");
+  const [firmSwitchPending, setFirmSwitchPending] = useState(false);
   const activeFirm = useFirmSlug();
   const [selectedRole, setSelectedRole] = useState(
     cookies.current_role || user?.role || "admin",
@@ -137,6 +151,13 @@ export default function DashboardLayout() {
       requiresFirm: true,
     },
     {
+      title: "Stock manager",
+      icon: Warehouse,
+      href: `/dashboard/${activeFirm}/stock-manager`,
+      roles: ["firm_admin"],
+      requiresFirm: true,
+    },
+    {
       title: "User Management",
       icon: Users,
       href: `/dashboard/${activeFirm}/user-management`,
@@ -215,6 +236,30 @@ export default function DashboardLayout() {
                         }}
                       >
                         <span>Switch Role</span>
+                        <IoMdSwitch className="size-5" />
+                      </div>
+                      <Separator />
+                    </>
+                  )}
+                  {user?.role !== "admin" &&
+                    user?.firms &&
+                    user.firms.length > 1 && (
+                    <>
+                      <div
+                        className="flex items-center justify-between cursor-pointer gap-3 hover:text-[#2B952B] !w-full"
+                        onClick={() => {
+                          setSwitchFirmId(
+                            String(
+                              user.firm_id ||
+                                user.firms[0]?.id ||
+                                "",
+                            ),
+                          );
+                          setIsDropdownOpen(false);
+                          setOpenFirmSwitchDialog(true);
+                        }}
+                      >
+                        <span>Switch firm</span>
                         <IoMdSwitch className="size-5" />
                       </div>
                       <Separator />
@@ -331,6 +376,82 @@ export default function DashboardLayout() {
               </Form>
             )}
           </Formik>
+        </CustomDialog>
+      )}
+
+      {openFirmSwitchDialog && user?.firms && user.firms.length > 1 && (
+        <CustomDialog
+          open={openFirmSwitchDialog}
+          onOpenChange={setOpenFirmSwitchDialog}
+          title="Switch firm"
+        >
+          <div className="flex flex-col gap-4 text-left">
+            <Label className="text-sm font-medium">Active firm</Label>
+            <Select value={switchFirmId} onValueChange={setSwitchFirmId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select firm" />
+              </SelectTrigger>
+              <SelectContent>
+                {user.firms.map((f) => (
+                  <SelectItem key={f.id} value={String(f.id)}>
+                    {f.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex border-t pt-3 gap-2 justify-end">
+              <CustomButton
+                type="button"
+                variant="outline"
+                onClick={() => setOpenFirmSwitchDialog(false)}
+              >
+                Cancel
+              </CustomButton>
+              <CustomButton
+                type="button"
+                disabled={!switchFirmId || firmSwitchPending}
+                onClick={async () => {
+                  setFirmSwitchPending(true);
+                  try {
+                    const resp = await axios.post(`/accounts/switch-firm/`, {
+                      firm_id: switchFirmId,
+                    });
+                    const d = resp?.data?.data;
+                    const token = resp?.data?.token;
+                    if (!d || !token) {
+                      toast.error("Invalid response from server");
+                      return;
+                    }
+                    login(d, token);
+                    const slug = d.firm?.slug;
+                    const role = mapBackendRoleToFrontend(
+                      d.user_type,
+                      d.firm?.role,
+                    );
+                    setCookie("current_role", role, { path: "/" });
+                    if (slug) setCookie("firm", slug, { path: "/" });
+                    toast.success(resp?.data?.message || "Firm switched");
+                    setOpenFirmSwitchDialog(false);
+                    if (role === "distributor" && !slug) {
+                      navigate("/dashboard/distribution");
+                    } else if (role === "super_retailer" && !slug) {
+                      navigate("/dashboard/orders");
+                    } else if (slug) {
+                      navigate(`/dashboard/${slug}`);
+                    } else {
+                      navigate("/dashboard");
+                    }
+                  } catch (e) {
+                    toast.error(getApiErrorMessage(e, "Could not switch firm"));
+                  } finally {
+                    setFirmSwitchPending(false);
+                  }
+                }}
+              >
+                {firmSwitchPending ? "Switching…" : "Switch"}
+              </CustomButton>
+            </div>
+          </div>
         </CustomDialog>
       )}
 

@@ -116,13 +116,18 @@ export default function Login() {
       if (from) {
         navigate(from, { replace: true });
       } else {
-        const userRole = userData.user_type === "ADMIN"
-          ? "admin"
-          : userData.firm?.role === "FIRM_ADMIN"
-            ? "firm_admin"
-            : userData.firm?.role === "SUPER_SELLER"
-              ? "super_retailer"
-              : "distributor";
+        const userRole =
+          userData.user_type === "ADMIN"
+            ? "admin"
+            : userData.firm?.role === "FIRM_ADMIN"
+              ? "firm_admin"
+              : userData.firm?.role === "SUPER_SELLER" ||
+                  userData.firm?.role === "SUPERSELLER_USER"
+                ? "super_retailer"
+                : userData.firm?.role === "DISTRIBUTOR" ||
+                    userData.firm?.role === "DISTRIBUTOR_USER"
+                  ? "distributor"
+                  : "firm_admin";
 
         getRoleBasedRoute(userRole, userData.firm?.slug).then((route) => {
           navigate(route, { replace: true });

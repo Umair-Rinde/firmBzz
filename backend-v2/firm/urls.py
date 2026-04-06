@@ -48,4 +48,8 @@ urlpatterns = [
     # Dashboard URLs
     path('dashboard/admin/', routes.AdminDashboardAPIView.as_view()),
     path('<slug:slug>/dashboard/', routes.FirmDashboardAPIView.as_view()),
+
+    path('<slug:slug>/stock/', routes.StockListAPIView.as_view()),
+    path('<slug:slug>/stock/ledger/', routes.StockLedgerListAPIView.as_view()),
+    path('<slug:slug>/stock/adjust/', routes.StockManualAdjustAPIView.as_view()),
 ]

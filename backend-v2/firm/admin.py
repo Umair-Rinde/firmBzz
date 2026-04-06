@@ -11,6 +11,7 @@ from .models import (
     RetailerOrderItem,
     Invoice,
     Payment,
+    StockLedgerEntry,
 )
 
 
@@ -239,3 +240,20 @@ class PaymentAdmin(admin.ModelAdmin):
     list_filter = ["mode", "paid_on"]
     search_fields = ["invoice__invoice_number", "reference"]
     readonly_fields = ["created_on"]
+
+
+@admin.register(StockLedgerEntry)
+class StockLedgerEntryAdmin(admin.ModelAdmin):
+    list_display = [
+        "created_on",
+        "firm",
+        "product",
+        "quantity_delta",
+        "entry_type",
+        "manual_reason",
+        "created_by",
+    ]
+    list_filter = ["entry_type", "firm", "manual_reason"]
+    search_fields = ["product__name", "note"]
+    readonly_fields = ["created_on", "updated_on"]
+    ordering = ["-created_on"]

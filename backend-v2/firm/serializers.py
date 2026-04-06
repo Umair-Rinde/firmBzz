@@ -16,10 +16,16 @@ from .models import (
     RetailerOrder,
     RetailerOrderItem,
     Payment,
+    StockLedgerEntry,
 )
 from accounts.models import User, FirmUsers
 from accounts.choices import UserTypeChoices
-from .choices import RetailerOrderStatusChoices, PaymentModeChoices
+from .choices import (
+    RetailerOrderStatusChoices,
+    PaymentModeChoices,
+    StockLedgerEntryType,
+    StockManualReason,
+)
 from .pricing import effective_unit_rate, allocate_batches_fefo
 
 class FirmSerializer(serializers.ModelSerializer):
@@ -680,7 +686,7 @@ class InvoiceFromRetailerOrdersSerializer(serializers.Serializer):
                         base_amt = base_amt * (Decimal("100") - disc) / Decimal("100")
                     line_amt = base_amt.quantize(Decimal("0.01"))
                     total += line_amt
-                    InvoiceItem.objects.create(
+                    inv_item = InvoiceItem.objects.create(
                         invoice=invoice,
                         product=product,
                         product_batch=batch,
@@ -690,6 +696,16 @@ class InvoiceFromRetailerOrdersSerializer(serializers.Serializer):
                         discount_percent=disc,
                         gst_percent=ln["gst_percent"],
                         line_total=line_amt,
+                    )
+                    StockLedgerEntry.objects.create(
+                        firm=firm,
+                        product=product,
+                        product_batch=batch,
+                        quantity_delta=-take,
+                        entry_type=StockLedgerEntryType.INVOICE_SALE,
+                        invoice_item=inv_item,
+                        created_by=user,
+                        note="Invoice from retailer orders",
                     )
 
             invoice.total_amount = total.quantize(Decimal("0.01"))
@@ -732,3 +748,17 @@ class PaymentCreateSerializer(serializers.Serializer):
     reference = serializers.CharField(required=False, allow_blank=True, default="")
     note = serializers.CharField(required=False, allow_blank=True, default="")
     paid_on = serializers.DateTimeField()
+
+
+class StockManualAdjustSerializer(serializers.Serializer):
+    product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
+    direction = serializers.ChoiceField(choices=["in", "out"])
+    quantity = serializers.IntegerField(min_value=1)
+    expiry_date = serializers.DateField(required=False, allow_null=True)
+    product_batch = serializers.PrimaryKeyRelatedField(
+        queryset=ProductBatch.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+    manual_reason = serializers.ChoiceField(choices=StockManualReason.choices)
+    note = serializers.CharField(required=False, allow_blank=True, default="")

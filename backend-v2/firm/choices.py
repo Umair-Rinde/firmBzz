@@ -51,3 +51,16 @@ class PaymentModeChoices(models.TextChoices):
     UPI = "UPI", "UPI"
     CHEQUE = "CHEQUE", "Cheque"
     OTHER = "OTHER", "Other"
+
+
+class StockLedgerEntryType(models.TextChoices):
+    MANUAL = "MANUAL", "Manual adjustment"
+    VENDOR_RECEIPT = "VENDOR_RECEIPT", "Vendor order receipt"
+    INVOICE_SALE = "INVOICE_SALE", "Invoice (sale)"
+
+
+class StockManualReason(models.TextChoices):
+    DAMAGE = "DAMAGE", "Damage / loss"
+    OPENING_BALANCE = "OPENING_BALANCE", "Opening / migration stock"
+    CORRECTION = "CORRECTION", "Stock correction"
+    OTHER = "OTHER", "Other"

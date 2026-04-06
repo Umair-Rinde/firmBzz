@@ -7,28 +7,110 @@ import { getApiErrorMessage } from "@/config/api-error";
 import { axios } from "@/config/axios";
 import { queryClient } from "@/config/query-client";
 import { useQuery } from "@/hooks/useQuerry";
+import { FirmInterface } from "@/interfaces/firm";
 import { UserInterface, FirmMembership } from "@/interfaces/user";
 import { useMutation } from "@tanstack/react-query";
-import { Form, Formik } from "formik";
-import { useEffect, useState } from "react";
+import { Form, Formik, FieldArray, useFormikContext } from "formik";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import * as Yup from "yup";
 
-const ROLE_COLORS: Record<string, string> = {
-  FIRM_ADMIN: "bg-blue-100 text-blue-800",
-  FIRM_USER: "bg-gray-100 text-gray-800",
-  SUPERSELLER_USER: "bg-purple-100 text-purple-800",
-  DISTRIBUTOR_USER: "bg-amber-100 text-amber-800",
-  SALES_PERSON: "bg-teal-100 text-teal-800",
-};
+const FIRM_ROLE_OPTIONS = [
+  { label: "Firm Admin", value: "FIRM_ADMIN" },
+  { label: "Firm User", value: "FIRM_USER" },
+  { label: "Super Seller", value: "SUPERSELLER_USER" },
+  { label: "Distributor", value: "DISTRIBUTOR_USER" },
+  { label: "Sales Person", value: "SALES_PERSON" },
+];
 
-const ROLE_LABELS: Record<string, string> = {
-  FIRM_ADMIN: "Firm Admin",
-  FIRM_USER: "Firm User",
-  SUPERSELLER_USER: "Super Seller",
-  DISTRIBUTOR_USER: "Distributor",
-  SALES_PERSON: "Sales Person",
-};
+function firmStubFromMembership(f: FirmMembership): FirmInterface {
+  return {
+    id: f.id,
+    name: f.name,
+    slug: f.slug,
+    code: "",
+    is_active: true,
+    address: "",
+    phone: "",
+  };
+}
+
+function FirmAssignmentsFields({ allFirms }: { allFirms: FirmInterface[] }) {
+  const { values } = useFormikContext<{
+    user_type: { label: string; value: string };
+    firm_assignments: { firm: FirmInterface | null; role: (typeof FIRM_ROLE_OPTIONS)[0] }[];
+  }>();
+
+  if (values.user_type?.value !== "FIRM_USER") return null;
+
+  return (
+    <div className="border rounded-lg p-4 bg-gray-50 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-gray-700">Firm access</h3>
+      </div>
+      <p className="text-xs text-gray-500">
+        This user can log in and switch only between these firms.
+      </p>
+      <FieldArray name="firm_assignments">
+        {({ push, remove }) => (
+          <div className="space-y-3">
+            {values.firm_assignments?.map((_, index) => (
+              <div
+                key={index}
+                className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end bg-white border rounded-md p-3"
+              >
+                <CustomSelect
+                  name={`firm_assignments.${index}.firm`}
+                  label="Firm"
+                  placeholder="Select firm"
+                  options={allFirms.filter(
+                    (f) =>
+                      String(values.firm_assignments[index]?.firm?.id) ===
+                        String(f.id) ||
+                      !values.firm_assignments.some(
+                        (row, j) =>
+                          j !== index &&
+                          row.firm &&
+                          String(row.firm.id) === String(f.id),
+                      ),
+                  )}
+                  getOptionLabel={(o) => o.name}
+                  getOptionValue={(o) => String(o.id)}
+                />
+                <CustomSelect
+                  name={`firm_assignments.${index}.role`}
+                  label="Role in firm"
+                  options={FIRM_ROLE_OPTIONS}
+                  getOptionLabel={(o) => o.label}
+                  getOptionValue={(o) => o.value}
+                />
+                <CustomButton
+                  type="button"
+                  variant="outline"
+                  className="shrink-0"
+                  onClick={() => remove(index)}
+                  disabled={(values.firm_assignments?.length || 0) <= 1}
+                >
+                  Remove
+                </CustomButton>
+              </div>
+            ))}
+            <CustomButton
+              type="button"
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() =>
+                push({ firm: null, role: FIRM_ROLE_OPTIONS[1] })
+              }
+            >
+              Add firm
+            </CustomButton>
+          </div>
+        )}
+      </FieldArray>
+    </div>
+  );
+}
 
 const UserDrawer = ({
   handleClose,
@@ -73,7 +155,12 @@ const UserDrawer = ({
   });
 
   const userData = isEdit ? singleUserData : null;
-  const firms: FirmMembership[] = userData?.firms || row?.firms || [];
+
+  const { data: allFirms = [] } = useQuery<FirmInterface[]>({
+    queryKey: [`/firm/all/`],
+    select: (data: any) => data?.data?.data?.rows ?? [],
+    enabled: open,
+  });
 
   const genderOptions = [
     { label: "Male", value: "MALE" },
@@ -85,6 +172,11 @@ const UserDrawer = ({
     { label: "Admin", value: "ADMIN" },
     { label: "Firm User", value: "FIRM_USER" },
   ];
+
+  const defaultFirmRows = useMemo(
+    () => [{ firm: null as FirmInterface | null, role: FIRM_ROLE_OPTIONS[1] }],
+    [],
+  );
 
   const [initialValues, setInitialValues] = useState({
     full_name: "",
@@ -99,32 +191,45 @@ const UserDrawer = ({
     state: "",
     country: "",
     pincode: "",
+    firm_assignments: defaultFirmRows,
   });
 
   useEffect(() => {
-    if (userData) {
-      setInitialValues({
-        full_name: userData.full_name || "",
-        email: userData.email || "",
-        phone: userData.phone || "",
-        password: "",
-        gender:
-          genderOptions.find((g) => g.value === userData.gender) ||
-          genderOptions[0],
-        user_type:
-          userTypeOptions.find((t) => t.value === userData.user_type) ||
-          userTypeOptions[1],
-        date_of_birth: userData.date_of_birth
-          ? new Date(userData.date_of_birth)
-          : null,
-        address: userData.address || "",
-        city: userData.city || "",
-        state: userData.state || "",
-        country: userData.country || "",
-        pincode: userData.pincode || "",
-      });
-    }
-  }, [userData]);
+    if (!userData) return;
+    const list = allFirms || [];
+    setInitialValues({
+      full_name: userData.full_name || "",
+      email: userData.email || "",
+      phone: userData.phone || "",
+      password: "",
+      gender:
+        genderOptions.find((g) => g.value === userData.gender) ||
+        genderOptions[0],
+      user_type:
+        userTypeOptions.find((t) => t.value === userData.user_type) ||
+        userTypeOptions[1],
+      date_of_birth: userData.date_of_birth
+        ? new Date(userData.date_of_birth)
+        : null,
+      address: userData.address || "",
+      city: userData.city || "",
+      state: userData.state || "",
+      country: userData.country || "",
+      pincode: userData.pincode || "",
+      firm_assignments:
+        (userData.firms || []).length > 0
+          ? (userData.firms || []).map((fm: FirmMembership) => {
+              const match = list.find((x) => String(x.id) === String(fm.id));
+              return {
+                firm: match || firmStubFromMembership(fm),
+                role:
+                  FIRM_ROLE_OPTIONS.find((r) => r.value === fm.role) ||
+                  FIRM_ROLE_OPTIONS[1],
+              };
+            })
+          : defaultFirmRows,
+    });
+  }, [userData, allFirms, defaultFirmRows]);
 
   return (
     <Drawer open={open} onOpenChange={handleClose} width="616px">
@@ -138,12 +243,13 @@ const UserDrawer = ({
           validationSchema={validationSchema}
           enableReinitialize
           onSubmit={(values: any) => {
+            const ut = values.user_type?.value || values.user_type;
             const payload: any = {
               full_name: values.full_name,
               email: values.email,
               phone: values.phone,
               gender: values.gender?.value || values.gender,
-              user_type: values.user_type?.value || values.user_type,
+              user_type: ut,
               address: values.address,
               city: values.city,
               state: values.state,
@@ -158,6 +264,21 @@ const UserDrawer = ({
             }
             if (values.password) {
               payload.password = values.password;
+            }
+            if (ut === "FIRM_USER") {
+              const rows = (values.firm_assignments || []).filter(
+                (r: { firm: FirmInterface | null }) => r.firm,
+              );
+              if (rows.length === 0) {
+                toast.error("Add at least one firm for a firm user.");
+                return;
+              }
+              payload.firm_assignments = rows.map(
+                (r: { firm: FirmInterface; role: { value: string } | string }) => ({
+                  firm_id: r.firm.id,
+                  role: typeof r.role === "object" ? r.role.value : r.role,
+                }),
+              );
             }
             mutate(payload);
           }}
@@ -214,6 +335,8 @@ const UserDrawer = ({
                   />
                 </div>
 
+                <FirmAssignmentsFields allFirms={allFirms} />
+
                 <DatePickerComponent
                   name="date_of_birth"
                   label="Date of Birth"
@@ -251,42 +374,6 @@ const UserDrawer = ({
                   />
                 </div>
 
-                {isEdit && (
-                  <div className="border rounded-lg p-4 bg-gray-50">
-                    <h3 className="text-sm font-semibold text-gray-700 mb-3">
-                      Firm Memberships
-                    </h3>
-                    {firms.length === 0 ? (
-                      <p className="text-sm text-gray-400 italic">
-                        This user is not assigned to any firm. Add them from a
-                        firm's User Management page.
-                      </p>
-                    ) : (
-                      <div className="flex flex-col gap-2">
-                        {firms.map((f) => (
-                          <div
-                            key={f.id}
-                            className="flex items-center justify-between bg-white border rounded-md px-3 py-2"
-                          >
-                            <span className="text-sm font-medium text-gray-800">
-                              {f.name}
-                            </span>
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                                ROLE_COLORS[f.role] || "bg-gray-100 text-gray-700"
-                              }`}
-                            >
-                              {ROLE_LABELS[f.role] || f.role}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <p className="text-xs text-gray-400 mt-2">
-                      To change firm roles, go to the firm's User Management page.
-                    </p>
-                  </div>
-                )}
               </div>
 
               <div className="bg-white absolute bottom-0 right-0 border-t w-full flex justify-end items-center px-7 py-4 gap-4 z-50">
