@@ -122,7 +122,7 @@ export default function StockManagerPage() {
     product: Yup.mixed().required("Product is required"),
     direction: Yup.string().oneOf(["in", "out"]).required(),
     quantity: Yup.number().min(1).required(),
-    manual_reason: Yup.string().required("Reason is required"),
+    manual_reason: Yup.object() .shape({ label: Yup.string().required(), value: Yup.string().required(), }),
     note: Yup.string(),
     expiry_date: Yup.string().nullable(),
     product_batch: Yup.mixed().nullable(),
