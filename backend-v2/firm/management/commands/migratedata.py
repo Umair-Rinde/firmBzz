@@ -10,6 +10,7 @@ Usage:
     python manage.py migratedata
     python manage.py migratedata --skip-firms   # only import XLS, skip firm/user creation
     python manage.py migratedata --refresh-products  # re-apply rates/MRP from XLS to existing rows (by item name)
+    python manage.py migratedata --skip-firms --import-stock  # sync stock from *anmol corner.xls* / *anmol enterprise.xls*
 """
 
 import os
@@ -22,8 +23,11 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils.text import slugify
 
+from django.db.models import Sum
+
 from accounts.models import User, FirmUsers
-from firm.models import Firm, Product, Customer
+from firm.choices import StockLedgerEntryType, StockManualReason
+from firm.models import Firm, Product, Customer, ProductBatch, StockLedgerEntry
 
 
 OWNER_EMAIL = "rindeumair@gmail.com"
@@ -318,6 +322,101 @@ def import_customers(firm: Firm, rows: list[dict], stdout) -> int:
     return created
 
 
+def _int_stock(val) -> int:
+    if val is None or str(val).strip() == "":
+        return 0
+    try:
+        return int(round(float(str(val).replace(",", "").strip())))
+    except Exception:
+        return 0
+
+
+def _workbook_looks_like_stock_sheet(rows: list[dict]) -> bool:
+    """True if headers include a stock quantity column (not item-master only)."""
+    if not rows:
+        return False
+    keys = {(str(k or "").strip().lower()) for k in rows[0].keys()}
+    return bool(keys & {"stock", "stockpcs", "stock pcs", "closing stock"})
+
+
+def _sync_product_stock_absolute(firm: Firm, product: Product, target_qty: int) -> str:
+    """
+    Make sum(ProductBatch.quantity) == target_qty by adjusting the single no-expiry batch.
+    Records StockLedgerEntry OPENING_BALANCE for audit.
+    """
+    agg = ProductBatch.objects.filter(product=product).aggregate(s=Sum("quantity"))
+    current = int(agg["s"] or 0)
+    delta = int(target_qty) - current
+    if delta == 0:
+        return "unchanged"
+
+    batch = ProductBatch.objects.filter(product=product, expiry_date__isnull=True).first()
+    if batch is None:
+        batch = ProductBatch.objects.create(product=product, expiry_date=None, quantity=0)
+
+    batch.quantity += delta
+    batch.save(update_fields=["quantity", "updated_on"])
+    StockLedgerEntry.objects.create(
+        firm=firm,
+        product=product,
+        product_batch=batch,
+        quantity_delta=delta,
+        entry_type=StockLedgerEntryType.MANUAL,
+        manual_reason=StockManualReason.OPENING_BALANCE,
+        note="migratedata: Excel stock sheet sync",
+        created_by=None,
+    )
+    return "updated"
+
+
+def import_stock_from_rows(firm: Firm, rows: list[dict], stdout) -> tuple[int, int, int]:
+    """
+    Match rows by item name (case-insensitive); read Stock / StockPcs / etc.
+    Returns (updated, unchanged, missing_product).
+    """
+    updated = unchanged = missing = 0
+    missing_samples: list[str] = []
+
+    for row in rows:
+        name_raw = _row_get(row, "itemname", "item name", "name", "product name", "item_name")
+        name = str(name_raw).strip() if name_raw else ""
+        if not name:
+            continue
+
+        stock_raw = _row_get(
+            row,
+            "stock",
+            "stockpcs",
+            "stock pcs",
+            "closing stock",
+            "qty",
+            "balance",
+        )
+        target = _int_stock(stock_raw)
+
+        qs = Product.objects.filter(firm=firm, name__iexact=name)
+        if not qs.exists():
+            missing += 1
+            if len(missing_samples) < 15:
+                missing_samples.append(name[:120])
+            continue
+
+        product = qs.first()
+        res = _sync_product_stock_absolute(firm, product, target)
+        if res == "updated":
+            updated += 1
+        else:
+            unchanged += 1
+
+    stdout.write(
+        f"  [stock] {updated} updated, {unchanged} already correct, "
+        f"{missing} spreadsheet rows had no DB product for {firm.name}"
+    )
+    if missing_samples:
+        stdout.write(f"  [stock] sample unmatched names: {missing_samples[:5]}")
+    return updated, unchanged, missing
+
+
 # -- management command --
 
 
@@ -335,8 +434,29 @@ class Command(BaseCommand):
             action="store_true",
             help="Re-read item-master XLS and update existing products (rates, MRP, etc.) by item name; does not create rows",
         )
+        parser.add_argument(
+            "--import-stock",
+            action="store_true",
+            help="Sync on-hand stock from XLS files that match each firm name and contain Stock / StockPcs columns",
+        )
 
     def handle(self, *args, **options):
+        if options["import_stock"]:
+            firms = []
+            for fd in FIRMS:
+                try:
+                    firms.append(Firm.objects.get(code=fd["code"]))
+                except Firm.DoesNotExist:
+                    self.stderr.write(
+                        self.style.ERROR(
+                            f"Firm {fd['code']} not found – create firms first (run migratedata without --import-stock only)"
+                        )
+                    )
+                    return
+            self._import_stock_from_files(firms)
+            self.stdout.write(self.style.SUCCESS("\nStock import complete!"))
+            return
+
         if options["refresh_products"]:
             firms = []
             for fd in FIRMS:
@@ -483,3 +603,35 @@ class Command(BaseCommand):
                 with transaction.atomic():
                     rows = _read_excel(str(pf))
                     refresh_products_from_rows(firm, rows, self.stdout)
+
+    def _import_stock_from_files(self, firms: list[Firm]):
+        if not MIGRATION_DIR.exists():
+            self.stdout.write(self.style.WARNING(f"  migrationdata/ not found at {MIGRATION_DIR}"))
+            return
+
+        xls_files = [
+            f for f in MIGRATION_DIR.iterdir()
+            if f.suffix.lower() in (".xls", ".xlsx") and not f.name.startswith("~")
+        ]
+        if not xls_files:
+            self.stdout.write(self.style.WARNING("  No .xls/.xlsx files in migrationdata/"))
+            return
+
+        product_files = [f for f in xls_files if any(k in f.stem.lower() for k in ("item", "product"))]
+        customer_files = [f for f in xls_files if any(k in f.stem.lower() for k in ("customer", "retailer"))]
+
+        for firm in firms:
+            self.stdout.write(f"\n  -- Stock import for {firm.name} --")
+            firm_key = firm.name.lower()
+            for xf in xls_files:
+                if xf in product_files or xf in customer_files:
+                    continue
+                if not self._file_matches_firm(xf, firm_key):
+                    continue
+                rows = _read_excel(str(xf))
+                if not _workbook_looks_like_stock_sheet(rows):
+                    self.stdout.write(f"  Skip {xf.name} (no Stock / StockPcs columns)")
+                    continue
+                self.stdout.write(f"  Applying stock from {xf.name} ...")
+                with transaction.atomic():
+                    import_stock_from_rows(firm, rows, self.stdout)

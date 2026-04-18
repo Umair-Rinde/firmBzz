@@ -80,7 +80,10 @@ export default function FirmRetailerOrdersPage() {
         url={slug ? `/firm/${slug}/retailer-orders/` : undefined}
         filterConfig={retailerOrderFilterConfig}
         extraButtons={
-          <CustomButton onClick={() => setOpen(true)}>
+          <CustomButton
+            className="w-full min-[480px]:w-auto shrink-0 justify-center"
+            onClick={() => setOpen(true)}
+          >
             New order <FaPlus />
           </CustomButton>
         }

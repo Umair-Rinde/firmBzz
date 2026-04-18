@@ -473,10 +473,10 @@ export const Datagrid = ({
             </p>
           )}
         </div>
-        <div className="flex justify-end items-center gap-3">
+        <div className="flex flex-wrap justify-end items-stretch sm:items-center gap-3 w-full min-w-0 lg:w-auto">
           {!disableSearch && (
             <SearchInput
-              containerClass="md:w-[320px] w-full"
+              containerClass="md:w-[320px] w-full min-w-0 flex-1 basis-[200px]"
               inputProps={{
                 onChange: (e) => {
                   setGlobalFilter(e.target.value);
@@ -507,7 +507,7 @@ export const Datagrid = ({
       </div>
 
       {showFilterBar && (
-        <div className="flex items-center gap-3 px-6 pb-4 flex-wrap">
+        <div className="flex items-center gap-3 px-4 sm:px-6 pb-4 flex-wrap">
           {filterConfig!.map((fc) => {
             const ALL_VALUE = "__all__";
             const allOption = { label: `All`, value: ALL_VALUE };
@@ -560,7 +560,7 @@ export const Datagrid = ({
                   <th
                     colSpan={header.colSpan}
                     className={cn(
-                      "bg-[rgba(250,250,250,1)] h-[44px] text-start px-6 font-medium text-[0.75rem] text-[#667085] border-b border-t border-[rgba(233,234,235,1)] relative group"
+                      "bg-[rgba(250,250,250,1)] h-[44px] text-start px-3 sm:px-6 font-medium text-[0.75rem] text-[#667085] border-b border-t border-[rgba(233,234,235,1)] relative group"
                     )}
                     style={{ width: header.getSize(), minWidth: "100%" }}
                     key={header.id}
@@ -643,7 +643,7 @@ export const Datagrid = ({
                     <td
                       key={cell.id}
                       className={cn(
-                        "h-[72px] px-6 border-b font-normal leading-[20px] text-[#535862] space-y-[14px] border-[rgba(233,234,235,1)] text-[0.875rem]"
+                        "h-[72px] px-3 sm:px-6 border-b font-normal leading-[20px] text-[#535862] space-y-[14px] border-[rgba(233,234,235,1)] text-[0.875rem]"
                       )}
                     >
                       {flexRender(

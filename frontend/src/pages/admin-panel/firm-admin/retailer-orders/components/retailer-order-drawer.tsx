@@ -139,8 +139,8 @@ function CustomerOutstandingBanner({ slug }: { slug: string }) {
       </button>
 
       {expanded && invoices.length > 0 && (
-        <div className="border-t border-red-200 px-2 py-2">
-          <table className="w-full text-xs">
+        <div className="border-t border-red-200 px-2 py-2 overflow-x-auto">
+          <table className="w-full text-xs min-w-[520px] sm:min-w-0">
             <thead>
               <tr className="text-red-700 font-medium">
                 <th className="text-left py-1 px-2">Invoice</th>
@@ -237,8 +237,8 @@ function OrderLineItem({
 
   return (
     <div className="border rounded-lg p-3 bg-gray-50/80 space-y-3">
-      <div className="flex gap-2 items-start">
-        <div className="flex-1 min-w-0">
+      <div className="flex flex-col gap-3 sm:flex-row sm:gap-2 sm:items-start">
+        <div className="flex-1 min-w-0 w-full">
           <SearchableSelect
             name={`items.${index}.product`}
             label="Product"
@@ -252,26 +252,29 @@ function OrderLineItem({
             onSelect={handleProductSelect}
           />
         </div>
-        <div className="w-20 shrink-0">
-          <CustomInput
-            name={`items.${index}.quantity`}
-            label="Qty"
-            type="number"
-            params={{ min: 1 }}
-          />
+        <div className="flex items-end gap-2 shrink-0">
+          <div className="w-24 sm:w-20">
+            <CustomInput
+              name={`items.${index}.quantity`}
+              label="Qty"
+              type="number"
+              params={{ min: 1 }}
+            />
+          </div>
+          <button
+            type="button"
+            className="mb-0.5 sm:mb-0 sm:mt-7 text-red-500 p-1.5 shrink-0 rounded-md hover:bg-red-50 disabled:opacity-40"
+            onClick={onRemove}
+            disabled={!canRemove}
+            aria-label="Remove line"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
         </div>
-        <button
-          type="button"
-          className="mt-7 text-red-500 p-1 shrink-0"
-          onClick={onRemove}
-          disabled={!canRemove}
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
       </div>
 
       {hasProduct && (
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <CustomInput
             name={`items.${index}.applied_discount_percent`}
             label="Disc %"
@@ -380,8 +383,8 @@ const RetailerOrderDrawer = ({
 
   return (
     <Drawer open={open} onOpenChange={handleClose} width="600px">
-      <div className="h-full overflow-y-auto">
-        <div className="h-[3.75rem] w-full absolute top-0 z-50 border-b px-5 bg-white border-[#D0D0D7] text-lg font-bold py-4">
+      <div className="h-full min-h-0 flex flex-col overflow-hidden">
+        <div className="h-[3.75rem] w-full shrink-0 border-b px-4 sm:px-5 bg-white border-[#D0D0D7] text-base sm:text-lg font-bold flex items-center">
           New retailer order
         </div>
 
@@ -403,8 +406,8 @@ const RetailerOrderDrawer = ({
           }}
         >
           {() => (
-            <Form>
-              <div className="flex flex-col gap-4 py-20 px-5">
+            <Form className="flex flex-col flex-1 min-h-0">
+              <div className="flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto overscroll-contain py-4 px-4 sm:px-5 pb-32 sm:pb-28">
                 <SearchableSelect
                   name="customer"
                   label="Retailer (customer)"
@@ -418,7 +421,7 @@ const RetailerOrderDrawer = ({
                   required
                 />
                 <CustomerOutstandingBanner slug={slug} />
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <CustomInput name="reference" label="Reference (optional)" />
                   <CustomInput name="notes" label="Notes (optional)" />
                 </div>
@@ -451,15 +454,16 @@ const RetailerOrderDrawer = ({
                 </FieldArray>
               </div>
 
-              <div className="flex absolute bg-white bottom-0 right-0 border-t w-full justify-end items-center px-5 py-4 gap-3">
+              <div className="shrink-0 flex flex-col-reverse sm:flex-row bg-white border-t w-full justify-stretch sm:justify-end items-stretch sm:items-center px-4 sm:px-5 pt-3 sm:pt-4 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] sm:pb-4 gap-2 sm:gap-3">
                 <CustomButton
                   variant="outline"
                   type="button"
                   onClick={handleClose}
+                  className="w-full sm:w-auto"
                 >
                   Cancel
                 </CustomButton>
-                <CustomButton type="submit" isPending={isPending}>
+                <CustomButton type="submit" isPending={isPending} className="w-full sm:w-auto">
                   Submit order
                 </CustomButton>
               </div>

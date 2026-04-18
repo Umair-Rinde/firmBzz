@@ -4,6 +4,17 @@ import { cn } from "@/lib/utils";
 import * as React from "react";
 import { Drawer as VaulDrawer } from "vaul";
 
+/** Keeps pixel/rem drawers inside the viewport on narrow screens. */
+function capWidthToViewport(width: string): string {
+  const t = width.trim();
+  if (t.includes("min(") || t.includes("max(") || t.includes("clamp(")) {
+    return t;
+  }
+  const m = /^(\d+(?:\.\d+)?)(px|rem)$/.exec(t);
+  if (m) return `min(100vw, ${m[1]}${m[2]})`;
+  return t;
+}
+
 export function Drawer({
   children,
   open,
@@ -28,9 +39,9 @@ export function Drawer({
           onInteractOutside={(e) => {
             e.preventDefault();
           }}
-          style={{ width }}
+          style={width ? { width: capWidthToViewport(width) } : undefined}
           className={cn(
-            "fixed top-0 right-0 h-full w-[300px] bg-white shadow-lg z-50",
+            "fixed top-0 right-0 h-full max-w-[100vw] min-w-0 w-[min(100vw,300px)] bg-white shadow-lg z-50 flex flex-col outline-none",
             "transition-transform duration-300 ease-in-out"
           )}
         >

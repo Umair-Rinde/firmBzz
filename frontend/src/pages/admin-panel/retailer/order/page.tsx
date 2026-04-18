@@ -64,7 +64,10 @@ export default function RetailerOrderPage() {
         title="Your orders"
         url={`/firm/${slug}/retailer-orders/`}
         extraButtons={
-          <CustomButton onClick={() => setOpen(true)}>
+          <CustomButton
+            className="w-full min-[480px]:w-auto shrink-0 justify-center"
+            onClick={() => setOpen(true)}
+          >
             New order <FaPlus />
           </CustomButton>
         }
