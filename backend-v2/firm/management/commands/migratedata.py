@@ -285,6 +285,16 @@ def import_customers(firm: Firm, rows: list[dict], stdout) -> int:
 
         cust_slug = slugify(f"{biz_name}-{firm.code}-{uuid4().hex[:6]}")
 
+        default_disc = _dec(
+            _row_get(
+                row,
+                "default_discount_percent",
+                "default_discount",
+                "retailer_discount",
+                "discount",
+            )
+        )
+
         Customer.objects.create(
             firm=firm,
             slug=cust_slug,
@@ -299,6 +309,7 @@ def import_customers(firm: Firm, rows: list[dict], stdout) -> int:
             fssai_number=fssai,
             fssai_expiry=fssai_expiry,
             reference_code=ref_code,
+            default_discount_percent=default_disc,
             is_active=True,
         )
         created += 1

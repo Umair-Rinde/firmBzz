@@ -16,6 +16,7 @@ from django.utils import timezone
 from django.utils.text import slugify
 
 from accounts.models import User, FirmUsers
+from firm.pricing import effective_unit_rate
 from firm.models import (
     Firm,
     Product,
@@ -393,6 +394,9 @@ class Command(BaseCommand):
                     email=rand_email(biz_name.split()[0]),
                     is_active=random.random() > 0.08,
                     reference_code=f"R{firm.code[:3]}{i + 1:04d}",
+                    default_discount_percent=rand_decimal(0, 12)
+                    if random.random() > 0.25
+                    else Decimal("0"),
                     slug=slugify(f"{biz_name}-{firm.code}-{i}"),
                 )
                 cust.save()
@@ -552,13 +556,18 @@ class Command(BaseCommand):
 
                 num_items = random.randint(2, 8)
                 for prod in random.sample(products, min(num_items, len(products))):
-                    rate = float(prod.rate_per_unit) or random.uniform(20, 500)
+                    rate = effective_unit_rate(prod, customer)
+                    line_disc = (
+                        Decimal("0")
+                        if prod.no_discount
+                        else (customer.default_discount_percent or Decimal("0"))
+                    )
                     RetailerOrderItem.objects.create(
                         order=order,
                         product=prod,
                         quantity=random.randint(5, 200),
-                        rate=Decimal(str(round(rate, 2))),
-                        applied_discount_percent=rand_decimal(0, 10) if random.random() > 0.6 else Decimal("0"),
+                        rate=rate,
+                        applied_discount_percent=line_disc,
                         scheme_applied=(
                             {"buy_qty": prod.scheme_buy_qty, "free_qty": prod.scheme_free_qty}
                             if prod.scheme_type == "BUY_X_GET_Y" and random.random() > 0.5
@@ -630,7 +639,11 @@ class Command(BaseCommand):
                     is_ss = customer.customer_type == "SUPER_SELLER"
                     rate = float(prod.sale_rate if is_ss else prod.rate_per_unit) or random.uniform(20, 500)
                     qty = random.randint(5, 200)
-                    disc = float(prod.product_discount) if not prod.no_discount else 0
+                    disc = (
+                        float(customer.default_discount_percent)
+                        if not prod.no_discount
+                        else 0.0
+                    )
                     gst = float(prod.gst_percent)
 
                     base = round(rate * qty * (1 - disc / 100), 2)

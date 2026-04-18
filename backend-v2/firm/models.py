@@ -57,11 +57,11 @@ class Product(BaseModel):
         max_digits=5,
         decimal_places=2,
         default=0,
-        help_text="Discount % applied on sale unit rate",
+        help_text="Catalog discount % (optional; list rate uses full sale_rate/rate_per_unit; default line discount is per retailer)",
     )
     no_discount = models.BooleanField(
         default=False,
-        help_text="If true, default product discount does not apply",
+        help_text="If true, retailer default line discount does not apply and line discount must be 0",
     )
 
     scheme_type = models.CharField(
@@ -140,6 +140,15 @@ class Customer(BaseModel):
         null=True,
         db_index=True,
         help_text="External retailer id (e.g. R001)",
+    )
+    default_discount_percent = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        help_text=(
+            "Default line discount % for this retailer on new order/invoice lines "
+            "(not applied when the product has no_discount)."
+        ),
     )
 
     def save(self, *args, **kwargs):

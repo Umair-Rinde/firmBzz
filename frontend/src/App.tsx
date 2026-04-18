@@ -221,6 +221,9 @@ const App = () => (
                     </ProtectedRoute>
                   }
                 />
+
+                {/* Firm-scoped home: /dashboard/:slug (sidebar + login redirect rely on this) */}
+                <Route path=":firmId" element={<DashboardHome />} />
               </Route>
 
               <Route path="*" element={<NotFound />} />

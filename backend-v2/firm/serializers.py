@@ -110,6 +110,7 @@ class CustomerSerializer(serializers.ModelSerializer):
         fields = [
             "id", "firm", "slug", "customer_type", "customer_type_display",
             "reference_code",
+            "default_discount_percent",
             "business_name", "owner_name", "fssai_number", "fssai_document", "gst_number",
             "fssai_expiry", "gst_expiry", "whatsapp_number", "contact_number",
             "business_address", "email", "is_active", "created_on",
@@ -351,7 +352,10 @@ class RetailerOrderItemWriteSerializer(serializers.Serializer):
     product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
     quantity = serializers.IntegerField(min_value=1)
     applied_discount_percent = serializers.DecimalField(
-        max_digits=5, decimal_places=2, required=False, default=0
+        max_digits=5,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
     )
     scheme_applied = serializers.JSONField(required=False, default=dict)
 
@@ -411,15 +415,28 @@ class RetailerOrderCreateSerializer(serializers.ModelSerializer):
                 product = row["product"]
                 if product.firm_id != firm.id:
                     raise ValidationError("Product does not belong to this firm.")
+                if "applied_discount_percent" in row and row["applied_discount_percent"] is not None:
+                    disc = Decimal(str(row["applied_discount_percent"]))
+                else:
+                    disc = (
+                        Decimal("0")
+                        if product.no_discount
+                        else (customer.default_discount_percent or Decimal("0"))
+                    )
+                if product.no_discount and disc > 0:
+                    raise ValidationError(
+                        f"Product '{product.name}' does not allow discounts "
+                        "(no_discount is enabled)."
+                    )
+                if product.no_discount:
+                    disc = Decimal("0")
                 rate = effective_unit_rate(product, customer)
                 RetailerOrderItem.objects.create(
                     order=order,
                     product=product,
                     quantity=row["quantity"],
                     rate=rate,
-                    applied_discount_percent=row.get(
-                        "applied_discount_percent", Decimal("0")
-                    ),
+                    applied_discount_percent=disc,
                     scheme_applied=row.get("scheme_applied") or {},
                 )
             return order

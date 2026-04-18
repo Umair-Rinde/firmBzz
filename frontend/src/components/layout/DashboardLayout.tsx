@@ -193,7 +193,11 @@ export default function DashboardLayout() {
 
   const handleSwitchRole = ({ role, firm }) => {
     setCookie("current_role", role, { path: "/" });
-    setCookie("firm", firm);
+    if (firm) {
+      setCookie("firm", firm, { path: "/" });
+    } else {
+      removeCookie("firm", { path: "/" });
+    }
     if (selectedRole === "admin") navigate("/dashboard");
     else navigate(location.pathname);
     setOpenRoleDialog(false);
@@ -429,7 +433,11 @@ export default function DashboardLayout() {
                       d.firm?.role,
                     );
                     setCookie("current_role", role, { path: "/" });
-                    if (slug) setCookie("firm", slug, { path: "/" });
+                    if (slug) {
+                      setCookie("firm", slug, { path: "/" });
+                    } else {
+                      removeCookie("firm", { path: "/" });
+                    }
                     toast.success(resp?.data?.message || "Firm switched");
                     setOpenFirmSwitchDialog(false);
                     if (role === "distributor" && !slug) {
@@ -437,9 +445,9 @@ export default function DashboardLayout() {
                     } else if (role === "super_retailer" && !slug) {
                       navigate("/dashboard/orders");
                     } else if (slug) {
-                      navigate(`/dashboard/${slug}`);
+                      navigate(`/dashboard/${slug}`, { replace: true });
                     } else {
-                      navigate("/dashboard");
+                      navigate("/dashboard", { replace: true });
                     }
                   } catch (e) {
                     toast.error(getApiErrorMessage(e, "Could not switch firm"));

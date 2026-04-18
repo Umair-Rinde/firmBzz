@@ -98,7 +98,15 @@ class CustomerAdmin(admin.ModelAdmin):
     ordering = ['-created_on']
     fieldsets = (
         ('Business Information', {
-            'fields': ('firm', 'customer_type', 'business_name', 'owner_name', 'slug')
+            'fields': (
+                'firm',
+                'customer_type',
+                'business_name',
+                'owner_name',
+                'reference_code',
+                'default_discount_percent',
+                'slug',
+            )
         }),
         ('Contact Details', {
             'fields': ('whatsapp_number', 'contact_number', 'email', 'business_address')

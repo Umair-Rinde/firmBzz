@@ -401,7 +401,7 @@ const VendorProductDrawer = ({
                   <div className="grid grid-cols-2 gap-3">
                     <CustomInput
                       name="product_discount"
-                      label="Default discount %"
+                      label="Reference discount % (optional)"
                       type="number"
                       className="w-full"
                     />

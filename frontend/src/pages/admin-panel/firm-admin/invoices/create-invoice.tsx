@@ -103,10 +103,12 @@ function EditableLineItems({
   lines,
   setLines,
   products,
+  retailerDefaultDiscount,
 }: {
   lines: InvoiceLine[];
   setLines: React.Dispatch<React.SetStateAction<InvoiceLine[]>>;
   products: any[];
+  retailerDefaultDiscount: number;
 }) {
   const updateLine = (idx: number, patch: Partial<InvoiceLine>) => {
     setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
@@ -122,7 +124,11 @@ function EditableLineItems({
       toast.error("Product already in the list");
       return;
     }
-    const disc = product.no_discount ? 0 : Number(product.product_discount ?? 0);
+    const disc = product.no_discount
+      ? 0
+      : Number.isFinite(retailerDefaultDiscount)
+        ? retailerDefaultDiscount
+        : 0;
     const hasScheme = product.scheme_type === "BUY_X_GET_Y";
     setLines((prev) => [
       ...prev,
@@ -517,6 +523,9 @@ function InvoiceFormInner({
             lines={lines}
             setLines={setLines}
             products={products}
+            retailerDefaultDiscount={Number(
+              values.customer?.default_discount_percent ?? 0,
+            )}
           />
         </div>
       )}

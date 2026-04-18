@@ -6,15 +6,15 @@ from rest_framework.exceptions import ValidationError
 
 
 def effective_unit_rate(product, customer):
-    """Unit rate after product discount % (Excel: SRate vs Rate/uni by retailer type)."""
+    """
+    Per-unit list price before line discounts (Super Seller: sale_rate; Distributor: rate_per_unit).
+    Line-level discount (e.g. retailer default_discount_percent) is applied separately on orders/invoices.
+    """
     if customer.customer_type == "SUPER_SELLER":
         base = product.sale_rate or Decimal("0")
     else:
         base = product.rate_per_unit or Decimal("0")
-    disc = product.product_discount or Decimal("0")
-    if disc <= 0:
-        return base
-    return (base * (Decimal("100") - disc) / Decimal("100")).quantize(Decimal("0.01"))
+    return base.quantize(Decimal("0.01"))
 
 
 def allocate_batches_fefo(product, quantity_needed):

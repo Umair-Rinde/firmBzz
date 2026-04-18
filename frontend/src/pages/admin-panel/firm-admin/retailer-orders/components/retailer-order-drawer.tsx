@@ -222,7 +222,8 @@ function OrderLineItem({
       setFieldValue(`${prefix}.scheme_free_qty`, "");
       return;
     }
-    const disc = product.no_discount ? 0 : Number(product.product_discount ?? 0);
+    const retailerDisc = Number(values.customer?.default_discount_percent ?? 0);
+    const disc = product.no_discount ? 0 : retailerDisc;
     setFieldValue(`${prefix}.applied_discount_percent`, disc || "");
 
     if (product.scheme_type === "BUY_X_GET_Y") {
@@ -276,7 +277,7 @@ function OrderLineItem({
             label="Disc %"
             type="number"
             placeholder="0"
-            disabled
+            disabled={!hasProduct || !!line?.product?.no_discount}
           />
           <CustomInput
             name={`items.${index}.scheme_buy_qty`}
@@ -362,7 +363,7 @@ const RetailerOrderDrawer = ({
         quantity: Number(row.quantity),
       };
       const disc = String(row.applied_discount_percent ?? "").trim();
-      if (disc !== "" && !Number.isNaN(Number(disc)) && Number(disc) > 0) {
+      if (disc !== "" && !Number.isNaN(Number(disc))) {
         item.applied_discount_percent = Number(disc);
       }
       const bq = String(row.scheme_buy_qty ?? "").trim();

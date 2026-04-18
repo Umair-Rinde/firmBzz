@@ -36,6 +36,10 @@ const RetailerConfigDrawer = ({
     customer_type: Yup.object().required("Customer type is required"),
     business_address: Yup.string().required("Business address is required"),
     fssai_document: Yup.mixed().required("FSSAI document is required"),
+    default_discount_percent: Yup.number()
+      .min(0, "Min 0")
+      .max(100, "Max 100")
+      .nullable(),
   });
 
   //-------- api call ---------//
@@ -85,6 +89,10 @@ const RetailerConfigDrawer = ({
     fssai_expiry: row?.fssai_expiry || null,
     gst_expiry: row?.gst_expiry || null,
     business_address: row?.business_address || "",
+    default_discount_percent:
+      row?.default_discount_percent !== undefined && row?.default_discount_percent !== null
+        ? String(row.default_discount_percent)
+        : "",
     is_active: row?.is_active !== undefined
       ? activeOptions.find((a) => a.value === row.is_active)
       : activeOptions[0],
@@ -114,6 +122,12 @@ const RetailerConfigDrawer = ({
                 // If it's the existing file URL from the backend, we don't want to upload a string
                 // Only append actual new File objects or simple textual fields
                 if (key === 'fssai_document' && typeof value === 'string') {
+                  return;
+                }
+
+                if (key === "default_discount_percent") {
+                  const n = String(value).trim();
+                  formData.append(key, n === "" ? "0" : n);
                   return;
                 }
 
@@ -194,6 +208,19 @@ const RetailerConfigDrawer = ({
                       required
                       className="w-full"
                     />
+                  </div>
+
+                  <div>
+                    <CustomInput
+                      name="default_discount_percent"
+                      label="Default line discount %"
+                      type="number"
+                      placeholder="0"
+                      className="w-full"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Applied to new retailer order lines unless the product is marked no discount.
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
