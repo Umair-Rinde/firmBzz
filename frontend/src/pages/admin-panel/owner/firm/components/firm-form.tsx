@@ -36,9 +36,7 @@ const FirmDrawer = ({
     onSuccess(data) {
       toast.success(data?.data?.data?.message || "Successful");
       handleClose();
-      queryClient.refetchQueries({
-        queryKey: [``],
-      });
+      queryClient.invalidateQueries({ queryKey: ["/firm/all/"] });
     },
     onError: (resp: unknown) => {
       toast.error(getApiErrorMessage(resp, "Something went wrong!"));
