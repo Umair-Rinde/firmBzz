@@ -5,6 +5,7 @@ import CustomButton from "@/components/ui/custom/custom-button";
 import { useQuery } from "@/hooks/useQuerry";
 import { FaPlus } from "react-icons/fa";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useFirmSlug } from "@/hooks/useFirmSlug";
 import {
   formatFssaiDate,
@@ -28,6 +29,7 @@ const retailerOrderFilterConfig: FilterConfig[] = [
 
 export default function FirmRetailerOrdersPage() {
   const slug = useFirmSlug();
+  const navigate = useNavigate();
 
   const { data: fssaiAlertRows = [] } = useQuery<any[]>({
     queryKey: [`/firm/${slug}/customers/fssai-expiry-alerts/`],
@@ -74,6 +76,33 @@ export default function FirmRetailerOrdersPage() {
       header: "By",
       accessorKey: "created_by_name",
       cell: ({ row }) => row.original.created_by_name || "—",
+    },
+    {
+      id: "invoice",
+      header: "Invoice",
+      cell: ({ row }) => {
+        const o = row.original;
+        if (o.status !== "SUBMITTED") {
+          return <span className="text-xs text-gray-400">—</span>;
+        }
+        return (
+          <CustomButton
+            type="button"
+            variant="outline"
+            className="text-xs h-8 px-2.5 whitespace-nowrap"
+            onClick={(e) => {
+              e.stopPropagation();
+              const q = new URLSearchParams({
+                customer: String(o.customer),
+                order: String(o.id),
+              });
+              navigate(`/dashboard/${slug}/invoices/create?${q.toString()}`);
+            }}
+          >
+            Create invoice
+          </CustomButton>
+        );
+      },
     },
   ];
 

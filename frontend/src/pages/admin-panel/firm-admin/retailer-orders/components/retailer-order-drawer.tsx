@@ -6,6 +6,7 @@ import { getApiErrorMessage } from "@/config/api-error";
 import { axios } from "@/config/axios";
 import { queryClient } from "@/config/query-client";
 import { useQuery } from "@/hooks/useQuerry";
+import { fetchAllFirmProducts } from "@/lib/fetch-all-firm-products";
 import { useMutation, useQuery as useTanQuery } from "@tanstack/react-query";
 import { FieldArray, Form, Formik, useFormikContext } from "formik";
 import { AlertTriangle, ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
@@ -262,10 +263,13 @@ function OrderLineItem({
           <SearchableSelect
             name={`items.${index}.product`}
             label="Product"
-            placeholder="Search product..."
+            placeholder="Search by product code or name..."
             options={products}
             getOptionLabel={(p: any) =>
               `${p.product_code ? `[${p.product_code}] ` : ""}${p.name}`
+            }
+            getOptionSearchText={(p: any) =>
+              [p.product_code, p.name].filter(Boolean).join(" ")
             }
             getOptionValue={(p: any) => p.id}
             renderOption={(p: any) => <ProductOptionRow p={p} />}
@@ -337,9 +341,9 @@ const RetailerOrderDrawer = ({
     enabled: !!slug && open,
   });
 
-  const { data: productsRaw } = useQuery<any>({
-    queryKey: [`/firm/${slug}/products/`, { limit: 500 }],
-    select: (res: any) => res?.data?.data?.rows ?? [],
+  const { data: productsRaw } = useTanQuery({
+    queryKey: [`/firm/${slug}/products/`, { allPages: true }],
+    queryFn: () => fetchAllFirmProducts(slug!),
     enabled: !!slug && open,
   });
 

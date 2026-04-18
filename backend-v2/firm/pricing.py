@@ -17,6 +17,18 @@ def effective_unit_rate(product, customer):
     return base.quantize(Decimal("0.01"))
 
 
+def line_total_inclusive(taxable_line_amount: Decimal, gst_percent) -> Decimal:
+    """
+    Discount-adjusted taxable amount → stored invoice line total (GST on top).
+    Matches seed invoices and InvoiceItem.line_total help text (tax-inclusive snapshot).
+    """
+    amt = taxable_line_amount.quantize(Decimal("0.01"))
+    gst = Decimal(str(gst_percent or 0))
+    if gst <= 0:
+        return amt
+    return (amt * (Decimal("100") + gst) / Decimal("100")).quantize(Decimal("0.01"))
+
+
 def allocate_batches_fefo(product, quantity_needed):
     """
     Returns list of (ProductBatch instance, qty_to_take). Does not save.

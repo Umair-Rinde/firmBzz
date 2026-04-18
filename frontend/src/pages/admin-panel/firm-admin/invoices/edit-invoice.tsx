@@ -61,6 +61,8 @@ const VALID_STATUS_TRANSITIONS: Record<string, { value: string; label: string; s
   ],
 };
 
+const STATUSES_NO_CHANGE_REQUEST = new Set(["CLOSED", "CANCELLED", "REJECTED"]);
+
 const STATUS_STYLE: Record<string, string> = {
   PENDING_APPROVAL: "bg-yellow-100 text-yellow-800 border-yellow-200",
   APPROVED: "bg-green-100 text-green-800 border-green-200",
@@ -457,6 +459,51 @@ const InvoiceEditPage = () => {
             <Check className="w-4 h-4 mr-2" />
             Approve invoice
           </CustomButton>
+        </div>
+      )}
+
+      {!STATUSES_NO_CHANGE_REQUEST.has(invoice.status) && invoice.status !== "PENDING_APPROVAL" && (
+        <div className="mb-6 p-4 bg-amber-50/80 border border-amber-100 rounded-lg flex items-center gap-3 flex-wrap">
+          <input
+            type="text"
+            placeholder="Note for change request..."
+            value={rejectionNote}
+            onChange={(e) => setRejectionNote(e.target.value)}
+            className="px-3 py-2 border border-amber-200 rounded-md text-sm min-w-[200px] flex-1 bg-white"
+          />
+          <CustomButton
+            variant="outline"
+            className="bg-orange-50 text-orange-700 hover:bg-orange-100 border-orange-200 shrink-0"
+            onClick={handleReject}
+            isPending={isRejecting}
+          >
+            <XCircle className="w-4 h-4 mr-2" />
+            Request changes
+          </CustomButton>
+        </div>
+      )}
+
+      {invoice.auto_closes_at &&
+        !STATUSES_NO_CHANGE_REQUEST.has(invoice.status) &&
+        invoice.status !== "CHANGES_REQUESTED" && (
+        <div className="mb-6 p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700">
+          <span className="font-medium text-slate-800">Auto-close: </span>
+          This invoice will be marked closed automatically 2 days after delivery
+          {invoice.delivered_at && (
+            <span className="text-slate-600">
+              {" "}
+              (after{" "}
+              {new Date(invoice.auto_closes_at).toLocaleString("en-IN", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+              )
+            </span>
+          )}
+          .
         </div>
       )}
 

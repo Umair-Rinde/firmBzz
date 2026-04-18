@@ -9,6 +9,8 @@ interface SearchableSelectProps {
   placeholder?: string;
   options: any[];
   getOptionLabel: (item: any) => string;
+  /** If set, the typeahead matches this string (e.g. code + name) instead of only the visible label. */
+  getOptionSearchText?: (item: any) => string;
   getOptionValue: (item: any) => any;
   renderOption?: (item: any) => React.ReactNode;
   /** When true, the option is shown but cannot be selected (e.g. invalid licence). */
@@ -25,6 +27,7 @@ export default function SearchableSelect({
   placeholder = "Search...",
   options,
   getOptionLabel,
+  getOptionSearchText,
   getOptionValue,
   renderOption,
   isOptionDisabled,
@@ -42,8 +45,10 @@ export default function SearchableSelect({
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const q = search.trim().toLowerCase();
+  const textForFilter = getOptionSearchText ?? getOptionLabel;
   const filtered = options.filter((item) =>
-    getOptionLabel(item).toLowerCase().includes(search.toLowerCase()),
+    q === "" ? true : textForFilter(item).toLowerCase().includes(q),
   );
 
   const selectedLabel = fieldValue ? getOptionLabel(fieldValue) : "";

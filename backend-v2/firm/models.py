@@ -406,6 +406,12 @@ class Invoice(BaseModel):
     
     rejection_note = models.TextField(blank=True, null=True)
 
+    delivered_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text="Set when status becomes DELIVERED; used to auto-close 2 days after delivery.",
+    )
+
     is_printed = models.BooleanField(default=False)
     printed_on = models.DateTimeField(blank=True, null=True)
     printed_by = models.ForeignKey(

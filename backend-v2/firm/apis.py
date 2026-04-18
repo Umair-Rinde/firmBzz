@@ -33,7 +33,7 @@ from .serializers import (
     PaymentCreateSerializer,
     StockManualAdjustSerializer,
 )
-from .pricing import effective_unit_rate, allocate_batches_fefo
+from .pricing import effective_unit_rate, allocate_batches_fefo, line_total_inclusive
 from .choices import StockLedgerEntryType
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from portal.base import BaseResponse
@@ -1275,12 +1275,35 @@ class RetailerOrderService:
 
 
 class InvoiceService:
+    """Statuses where change requests are not allowed (invoice is finished)."""
+    STATUSES_NO_CHANGE_REQUEST = frozenset({"CLOSED", "CANCELLED", "REJECTED"})
+
+    @staticmethod
+    def auto_close_delivered_invoices(firm=None):
+        """
+        Set status to CLOSED when delivered_at is at least 2 days ago and the invoice
+        is still in a post-delivery state (not yet closed).
+        """
+        from datetime import timedelta
+
+        threshold = timezone.now() - timedelta(days=2)
+        qs = Invoice.objects.filter(
+            delivered_at__isnull=False,
+            delivered_at__lte=threshold,
+            status__in=["DELIVERED", "PARTIALLY_PAID", "PAID"],
+        )
+        if firm is not None:
+            qs = qs.filter(firm=firm)
+        return qs.update(status="CLOSED", updated_on=timezone.now())
+
     @staticmethod
     def list_invoices(firm_slug, user, params=None):
         try:
             firm = Firm.objects.get(slug=firm_slug)
         except Firm.DoesNotExist:
             return BaseResponse(success=False, message="Firm not found", status=404)
+
+        InvoiceService.auto_close_delivered_invoices(firm=firm)
 
         invoices = Invoice.objects.filter(firm=firm).select_related("customer", "created_by", "approved_by").order_by("-created_on")
         
@@ -1349,6 +1372,8 @@ class InvoiceService:
             firm = Firm.objects.get(slug=firm_slug)
         except Firm.DoesNotExist:
             return BaseResponse(success=False, message="Firm not found", status=404)
+
+        InvoiceService.auto_close_delivered_invoices(firm=firm)
 
         try:
             invoice = (
@@ -1453,8 +1478,12 @@ class InvoiceService:
         except Invoice.DoesNotExist:
             return BaseResponse(success=False, message="Invoice not found", status=404)
 
-        if invoice.status == 'APPROVED':
-            return BaseResponse(success=False, message="Cannot request changes on an approved invoice", status=400)
+        if invoice.status in InvoiceService.STATUSES_NO_CHANGE_REQUEST:
+            return BaseResponse(
+                success=False,
+                message="Changes cannot be requested once the invoice is closed, cancelled, or rejected.",
+                status=400,
+            )
 
         note = data.get('note', '')
         if not note:
@@ -1586,7 +1615,11 @@ class InvoiceService:
                 )
 
             invoice.status = new_status
-            invoice.save(update_fields=["status", "updated_on"])
+            update_fields = ["status", "updated_on"]
+            if new_status == "DELIVERED":
+                invoice.delivered_at = timezone.now()
+                update_fields.append("delivered_at")
+            invoice.save(update_fields=update_fields)
 
         serializer = InvoiceSerializer(invoice)
         return BaseResponse(
@@ -1655,8 +1688,8 @@ class InvoiceService:
                 qty_to_take = min(batch.quantity, remaining_to_allocate)
                 remaining_to_allocate -= qty_to_take
 
-                amount = Decimal(qty_to_take) * rate
-                item_total += amount
+                taxable = Decimal(qty_to_take) * rate
+                item_total += taxable
 
                 exp = batch.expiry_date
                 item_breakdown.append(
@@ -1664,7 +1697,7 @@ class InvoiceService:
                         "expiry_date": exp.isoformat() if exp else None,
                         "quantity": qty_to_take,
                         "rate": str(rate),
-                        "amount": str(amount),
+                        "amount": str(taxable),
                     }
                 )
 
@@ -1678,6 +1711,7 @@ class InvoiceService:
                     status=400,
                 )
 
+            item_total = line_total_inclusive(item_total, product.gst_percent)
             grand_total += item_total
             preview_items.append(
                 {
