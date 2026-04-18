@@ -392,6 +392,22 @@ class RetailerOrderCreateSerializer(serializers.ModelSerializer):
         model = RetailerOrder
         fields = ["customer", "reference", "notes", "items"]
 
+    def validate(self, attrs):
+        from django.utils import timezone
+
+        customer = attrs.get("customer")
+        if customer is not None and customer.fssai_expiry is not None:
+            if customer.fssai_expiry < timezone.now():
+                raise ValidationError(
+                    {
+                        "customer": (
+                            "This retailer's FSSAI has expired. "
+                            "Update FSSAI in retailer configuration before creating an order."
+                        )
+                    }
+                )
+        return attrs
+
     def create(self, validated_data):
         from django.db import transaction
 

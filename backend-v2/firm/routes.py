@@ -351,6 +351,25 @@ class VendorDetailAPIView(APIView):
         return apis.VendorService.delete_vendor(slug, vendor_id)
 
 
+class CustomerFssaiExpiryAlertsAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    schema = AutoSchema()
+
+    @extend_schema(
+        summary="FSSAI expiry alerts (retailers)",
+        description=(
+            "Retailers with FSSAI already expired or expiring within the next 7 days. "
+            "Only includes records that have fssai_expiry set."
+        ),
+        tags=["Customers"],
+    )
+    def get(self, request, slug):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
+        return apis.CustomerService.list_fssai_expiry_alerts(slug)
+
+
 class CustomerListCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
     schema = AutoSchema()
@@ -495,7 +514,9 @@ class RetailerOrderDetailAPIView(APIView):
         denied = _enforce_firm_context(request, slug)
         if denied:
             return denied
-        return apis.RetailerOrderService.get_retailer_order(slug, order_id)
+        return apis.RetailerOrderService.get_retailer_order(
+            slug, order_id, user=request.user
+        )
 
 
 class InvoiceListCreateAPIView(APIView):

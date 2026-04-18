@@ -60,7 +60,7 @@ const App = () => (
               <Route
                 path="/dashboard/:firmId/invoices/:id/print"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={["firm_admin", "admin"]}>
                     <PrintInvoicePage />
                   </ProtectedRoute>
                 }
@@ -164,7 +164,9 @@ const App = () => (
                 <Route
                   path=":firmId/retailer-orders"
                   element={
-                    <ProtectedRoute allowedRoles={["firm_admin", "admin"]}>
+                    <ProtectedRoute
+                      allowedRoles={["firm_admin", "admin", "sales_person"]}
+                    >
                       <FirmRetailerOrdersPage />
                     </ProtectedRoute>
                   }

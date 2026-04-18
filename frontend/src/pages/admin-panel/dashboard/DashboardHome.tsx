@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useCookies } from "react-cookie";
 import { useFirmSlug } from "@/hooks/useFirmSlug";
@@ -464,10 +466,19 @@ function AdminDashboard({ data }: { data: any }) {
 // ───────────── Main Dashboard ─────────────
 export default function DashboardHome() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [cookies] = useCookies(["current_role", "firm"]);
 
   const role = cookies.current_role || user?.role;
   const firm_slug = useFirmSlug();
+  const isSalesPerson = role === "sales_person";
+
+  useEffect(() => {
+    if (isSalesPerson && firm_slug && !location.pathname.endsWith("/retailer-orders")) {
+      navigate(`/dashboard/${firm_slug}/retailer-orders`, { replace: true });
+    }
+  }, [isSalesPerson, firm_slug, location.pathname, navigate]);
 
   const dashboardUrl = role === "admin"
     ? "/firm/dashboard/admin/"
@@ -475,10 +486,21 @@ export default function DashboardHome() {
 
   const { data: dashboardResponse, isLoading } = useQuery<any>({
     queryKey: [dashboardUrl],
-    enabled: !!user && (role === "admin" || !!firm_slug),
+    enabled:
+      !!user &&
+      !isSalesPerson &&
+      (role === "admin" || !!firm_slug),
   });
 
   const dashboardData = dashboardResponse?.data?.data || {};
+
+  if (isSalesPerson) {
+    return (
+      <div className="flex items-center justify-center min-h-[40vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

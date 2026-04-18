@@ -1117,6 +1117,28 @@ class CustomerService:
         except Customer.DoesNotExist:
             return BaseResponse(success=False, message="Customer not found", status=404)
 
+    @staticmethod
+    def list_fssai_expiry_alerts(firm_slug):
+        """Retailers with FSSAI expired or expiring within the next 7 days (requires fssai_expiry set)."""
+        from datetime import timedelta
+
+        try:
+            now = timezone.now()
+            cutoff = now + timedelta(days=7)
+            qs = (
+                Customer.objects.filter(
+                    firm__slug=firm_slug,
+                    fssai_expiry__isnull=False,
+                    fssai_expiry__lte=cutoff,
+                )
+                .order_by("fssai_expiry")
+            )
+            serializer = CustomerSerializer(qs, many=True)
+            data = {"rows": serializer.data, "count": qs.count()}
+            return BaseResponse(data=data, status=200)
+        except Exception as e:
+            return BaseResponse(success=False, message=str(e), status=500)
+
 
 class ProductCrudService:
     @staticmethod
@@ -1222,11 +1244,30 @@ class RetailerOrderService:
         )
 
     @staticmethod
-    def get_retailer_order(firm_slug, order_id):
+    def get_retailer_order(firm_slug, order_id, user=None):
         try:
             order = RetailerOrder.objects.get(id=order_id, firm__slug=firm_slug)
         except RetailerOrder.DoesNotExist:
             return BaseResponse(success=False, message="Order not found", status=404)
+
+        if user is not None and getattr(user, "user_type", None) == "FIRM_USER":
+            try:
+                firm_user = FirmUsers.objects.get(user=user, firm=order.firm)
+                if firm_user.role not in ("ADMIN", "FIRM_ADMIN"):
+                    if str(order.created_by_id) != str(user.id):
+                        return BaseResponse(
+                            success=False,
+                            message="Forbidden",
+                            status=403,
+                        )
+            except FirmUsers.DoesNotExist:
+                if str(order.created_by_id) != str(user.id):
+                    return BaseResponse(
+                        success=False,
+                        message="Forbidden",
+                        status=403,
+                    )
+
         return BaseResponse(
             data=RetailerOrderSerializer(order).data,
             status=200,

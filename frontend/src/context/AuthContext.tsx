@@ -1,6 +1,11 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
 
-export type UserRole = "admin" | "firm_admin" | "super_retailer" | "distributor";
+export type UserRole =
+  | "admin"
+  | "firm_admin"
+  | "super_retailer"
+  | "distributor"
+  | "sales_person";
 
 interface BackendFirm {
   id: string;
@@ -52,6 +57,8 @@ export const mapBackendRoleToFrontend = (
     switch (firmRole) {
       case "FIRM_ADMIN":
         return "firm_admin";
+      case "SALES_PERSON":
+        return "sales_person";
       case "SUPER_SELLER":
       case "SUPERSELLER_USER":
         return "super_retailer";
@@ -61,6 +68,10 @@ export const mapBackendRoleToFrontend = (
       default:
         return "firm_admin";
     }
+  }
+
+  if (userType === "SALES_PERSON") {
+    return "sales_person";
   }
 
   return "firm_admin";

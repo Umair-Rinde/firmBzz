@@ -11,6 +11,10 @@ import { FieldArray, Form, Formik, useFormikContext } from "formik";
 import { AlertTriangle, ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useFirmSlug } from "@/hooks/useFirmSlug";
+import {
+  formatFssaiDate,
+  getFssaiRetailStatus,
+} from "@/utils/fssai-retailer";
 import { toast } from "sonner";
 import * as Yup from "yup";
 
@@ -61,6 +65,21 @@ function ProductOptionRow({ p }: { p: any }) {
 
 function CustomerOptionRow({ c }: { c: any }) {
   const outstanding = Number(c.outstanding_balance ?? 0);
+  const fssaiStatus = getFssaiRetailStatus(c.fssai_expiry);
+  const fssaiLine =
+    fssaiStatus === "expired" ? (
+      <span className="text-red-600 font-medium">
+        FSSAI expired ({formatFssaiDate(c.fssai_expiry)}) — cannot select
+      </span>
+    ) : fssaiStatus === "expiring_soon" ? (
+      <span className="text-amber-700 font-medium">
+        FSSAI expires {formatFssaiDate(c.fssai_expiry)} (within 7 days)
+      </span>
+    ) : fssaiStatus === "none" ? (
+      <span className="text-gray-500">FSSAI expiry not set</span>
+    ) : (
+      <span className="text-gray-500">FSSAI valid until {formatFssaiDate(c.fssai_expiry)}</span>
+    );
   return (
     <div className="flex flex-col gap-0.5">
       <div className="flex items-center gap-1.5">
@@ -71,7 +90,7 @@ function CustomerOptionRow({ c }: { c: any }) {
         )}
         <span className="font-medium truncate">{c.business_name}</span>
       </div>
-      <div className="flex items-center gap-3 text-xs text-gray-500">
+      <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
         <span>
           {c.customer_type === "SUPER_SELLER" ? "Super Seller" : "Distributor"}
         </span>
@@ -81,6 +100,7 @@ function CustomerOptionRow({ c }: { c: any }) {
           </span>
         )}
       </div>
+      <div className="text-[11px] leading-snug">{fssaiLine}</div>
     </div>
   );
 }
@@ -333,7 +353,14 @@ const RetailerOrderDrawer = ({
     );
 
   const validationSchema = Yup.object().shape({
-    customer: Yup.object().nullable().required("Customer is required"),
+    customer: Yup.object()
+      .nullable()
+      .required("Customer is required")
+      .test(
+        "fssai-not-expired",
+        "This retailer's FSSAI has expired. Update FSSAI in retailer configuration or choose another retailer.",
+        (c: any) => !c || getFssaiRetailStatus(c?.fssai_expiry) !== "expired",
+      ),
     items: Yup.array()
       .of(
         Yup.object().shape({
@@ -418,6 +445,7 @@ const RetailerOrderDrawer = ({
                   }
                   getOptionValue={(c: any) => c.id}
                   renderOption={(c: any) => <CustomerOptionRow c={c} />}
+                  isOptionDisabled={(c: any) => getFssaiRetailStatus(c.fssai_expiry) === "expired"}
                   required
                 />
                 <CustomerOutstandingBanner slug={slug} />

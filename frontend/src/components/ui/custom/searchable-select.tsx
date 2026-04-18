@@ -11,6 +11,8 @@ interface SearchableSelectProps {
   getOptionLabel: (item: any) => string;
   getOptionValue: (item: any) => any;
   renderOption?: (item: any) => React.ReactNode;
+  /** When true, the option is shown but cannot be selected (e.g. invalid licence). */
+  isOptionDisabled?: (item: any) => boolean;
   onSelect?: (item: any | null) => void;
   required?: boolean;
   disabled?: boolean;
@@ -25,6 +27,7 @@ export default function SearchableSelect({
   getOptionLabel,
   getOptionValue,
   renderOption,
+  isOptionDisabled,
   onSelect,
   required,
   disabled,
@@ -56,6 +59,7 @@ export default function SearchableSelect({
   }, []);
 
   const handleSelect = (item: any) => {
+    if (isOptionDisabled?.(item)) return;
     helpers.setValue(item);
     helpers.setTouched(true);
     setSearch("");
@@ -122,12 +126,15 @@ export default function SearchableSelect({
             filtered.map((item) => {
               const val = getOptionValue(item);
               const isSelected = fieldValue && getOptionValue(fieldValue) === val;
+              const optionDisabled = !!isOptionDisabled?.(item);
               return (
                 <div
                   key={String(val)}
-                  onClick={() => handleSelect(item)}
-                  className={`px-3 py-2 text-sm cursor-pointer transition-colors
-                    ${isSelected ? "bg-primary/10 text-primary font-medium" : "hover:bg-gray-50"}
+                  onClick={() => !optionDisabled && handleSelect(item)}
+                  className={`px-3 py-2 text-sm transition-colors
+                    ${optionDisabled ? "opacity-55 cursor-not-allowed bg-gray-50 text-gray-500" : "cursor-pointer"}
+                    ${!optionDisabled && isSelected ? "bg-primary/10 text-primary font-medium" : ""}
+                    ${!optionDisabled && !isSelected ? "hover:bg-gray-50" : ""}
                   `}
                 >
                   {renderOption ? renderOption(item) : getOptionLabel(item)}

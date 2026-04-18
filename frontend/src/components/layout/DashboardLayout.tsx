@@ -140,7 +140,7 @@ export default function DashboardLayout() {
       title: "Retailer orders",
       icon: ClipboardList,
       href: `/dashboard/${activeFirm}/retailer-orders`,
-      roles: ["firm_admin"],
+      roles: ["firm_admin", "sales_person"],
       requiresFirm: true,
     },
     {
@@ -444,6 +444,10 @@ export default function DashboardLayout() {
                       navigate("/dashboard/distribution");
                     } else if (role === "super_retailer" && !slug) {
                       navigate("/dashboard/orders");
+                    } else if (role === "sales_person" && slug) {
+                      navigate(`/dashboard/${slug}/retailer-orders`, {
+                        replace: true,
+                      });
                     } else if (slug) {
                       navigate(`/dashboard/${slug}`, { replace: true });
                     } else {
