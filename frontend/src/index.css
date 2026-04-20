@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -37,20 +37,24 @@
     --radius: 1rem;
 
     /* Enhanced custom tokens */
-    --gradient-hero: linear-gradient(135deg, 
-      hsl(221 83% 53% / 0.15) 0%, 
-      hsl(221 83% 53% / 0.08) 25%, 
-      hsl(38 92% 50% / 0.05) 75%, 
-      hsl(38 92% 50% / 0.1) 100%);
-    
-    --gradient-card: linear-gradient(135deg, 
-      hsl(0 0% 100% / 0.9) 0%, 
-      hsl(210 40% 98% / 0.9) 100%);
-    
+    --gradient-hero: linear-gradient(
+      135deg,
+      hsl(221 83% 53% / 0.15) 0%,
+      hsl(221 83% 53% / 0.08) 25%,
+      hsl(38 92% 50% / 0.05) 75%,
+      hsl(38 92% 50% / 0.1) 100%
+    );
+
+    --gradient-card: linear-gradient(
+      135deg,
+      hsl(0 0% 100% / 0.9) 0%,
+      hsl(210 40% 98% / 0.9) 100%
+    );
+
     --shadow-card: 0 8px 40px -12px hsl(222 47% 11% / 0.08);
     --shadow-card-hover: 0 24px 60px -16px hsl(222 47% 11% / 0.15);
     --shadow-nav: 0 4px 24px -8px hsl(222 47% 11% / 0.08);
-    
+
     --shadow-glow: 0 0 40px -8px hsl(221 83% 53% / 0.3);
     --shadow-glow-accent: 0 0 40px -8px hsl(38 92% 50% / 0.3);
 
@@ -97,15 +101,17 @@
     --input: 217 33% 17%;
     --ring: 221 83% 60%;
 
-    --gradient-hero: linear-gradient(135deg, 
-      hsl(221 83% 60% / 0.2) 0%, 
-      hsl(221 83% 60% / 0.1) 25%, 
-      hsl(38 92% 55% / 0.08) 75%, 
-      hsl(38 92% 55% / 0.15) 100%);
-    
+    --gradient-hero: linear-gradient(
+      135deg,
+      hsl(221 83% 60% / 0.2) 0%,
+      hsl(221 83% 60% / 0.1) 25%,
+      hsl(38 92% 55% / 0.08) 75%,
+      hsl(38 92% 55% / 0.15) 100%
+    );
+
     --shadow-card: 0 8px 40px -12px hsl(0 0% 0% / 0.4);
     --shadow-card-hover: 0 24px 60px -16px hsl(0 0% 0% / 0.5);
-    
+
     --shadow-glow: 0 0 40px -8px hsl(221 83% 60% / 0.4);
     --shadow-glow-accent: 0 0 40px -8px hsl(38 92% 55% / 0.4);
 
@@ -134,7 +140,12 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply font-heading font-bold tracking-tight;
     letter-spacing: -0.025em;
   }
@@ -163,7 +174,7 @@
 
 @layer components {
   .font-heading {
-    font-family: 'Outfit', system-ui, sans-serif;
+    font-family: "Outfit", system-ui, sans-serif;
   }
 
   .text-balance {
@@ -180,8 +191,9 @@
   .gradient-border {
     position: relative;
     border: double 2px transparent;
-    background-image: linear-gradient(var(--background), var(--background)), 
-                      linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%);
+    background-image:
+      linear-gradient(var(--background), var(--background)),
+      linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%);
     background-origin: border-box;
     background-clip: padding-box, border-box;
   }
@@ -198,7 +210,7 @@
 @layer utilities {
   /* Clears fixed dashboard header (mobile: app bar + page title bar; md+: breadcrumb + title bar) */
   .dashboard-page-offset {
-    @apply mt-[10rem] md:mt-[150px];
+    @apply mt-[6rem] md:mt-[180px];
   }
 
   .animate-gradient {
@@ -211,15 +223,22 @@
   }
 
   .mask-fade-bottom {
-    mask-image: linear-gradient(to bottom, 
-      hsl(0 0% 0%) 0%, 
-      hsl(0 0% 0% / 0.8) 50%, 
-      hsl(0 0% 0% / 0) 100%);
+    mask-image: linear-gradient(
+      to bottom,
+      hsl(0 0% 0%) 0%,
+      hsl(0 0% 0% / 0.8) 50%,
+      hsl(0 0% 0% / 0) 100%
+    );
   }
 }
 
+.react-date-picker__wrapper {
+  border: none !important;
+}
+
 @keyframes float {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0px);
   }
   50% {
@@ -228,7 +247,8 @@
 }
 
 @keyframes gradient {
-  0%, 100% {
+  0%,
+  100% {
     background-position: 0% 50%;
   }
   50% {
@@ -237,15 +257,14 @@
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {
     opacity: 0.5;
   }
 }
-
-
 
 @layer base {
   * {

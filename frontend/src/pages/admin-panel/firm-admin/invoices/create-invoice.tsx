@@ -112,7 +112,9 @@ function EditableLineItems({
   retailerDefaultDiscount: number;
 }) {
   const updateLine = (idx: number, patch: Partial<InvoiceLine>) => {
-    setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
+    setLines((prev) =>
+      prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)),
+    );
   };
 
   const removeLine = (idx: number) => {
@@ -165,9 +167,13 @@ function EditableLineItems({
             {lines.map((line, idx) => {
               const noDiscount = line.product?.no_discount === true;
               const hasScheme =
-                line.product?.scheme_type === "BUY_X_GET_Y" && line.include_scheme;
+                line.product?.scheme_type === "BUY_X_GET_Y" &&
+                line.include_scheme;
               return (
-                <tr key={line.product?.id || idx} className="border-b last:border-0">
+                <tr
+                  key={line.product?.id || idx}
+                  className="border-b last:border-0"
+                >
                   <td className="p-3">
                     <div className="font-medium text-gray-800 truncate">
                       {line.product?.product_code && (
@@ -178,10 +184,15 @@ function EditableLineItems({
                       {line.product?.name}
                     </div>
                     <div className="text-xs text-gray-500 mt-0.5">
-                      Rate: {line.product?.rate_per_unit || line.product?.sale_rate || "—"}
+                      Rate:{" "}
+                      {line.product?.rate_per_unit ||
+                        line.product?.sale_rate ||
+                        "—"}
                       {" · "}Stock: {line.product?.available_quantity ?? "—"}
                       {noDiscount && (
-                        <span className="ml-2 text-red-500 font-medium">No discount</span>
+                        <span className="ml-2 text-red-500 font-medium">
+                          No discount
+                        </span>
                       )}
                     </div>
                   </td>
@@ -360,7 +371,9 @@ function InvoiceFormBody({
     mutationFn: (data: any) => axios.post(`/firm/${firmId}/invoices/`, data),
     onSuccess: (res: any) => {
       toast.success("Invoice created successfully");
-      queryClient.invalidateQueries({ queryKey: [`/firm/${firmId}/invoices/`] });
+      queryClient.invalidateQueries({
+        queryKey: [`/firm/${firmId}/invoices/`],
+      });
       navigate(`/dashboard/${firmId}/invoices/${res.data.data.id}`);
     },
     onError: (err: unknown) => {
@@ -442,8 +455,7 @@ function InvoiceFormInner({
   const submittedForCustomer = useMemo(() => {
     if (!values.customer) return [];
     return allOrders.filter(
-      (o: any) =>
-        o.customer === values.customer.id && o.status === "SUBMITTED",
+      (o: any) => o.customer === values.customer.id && o.status === "SUBMITTED",
     );
   }, [allOrders, values.customer]);
 
@@ -473,11 +485,7 @@ function InvoiceFormInner({
     const cid = values.customer.id as string;
     const validIds = prefillOrderIds.filter((oid) => {
       const o = allOrders.find((x: any) => x.id === oid);
-      return (
-        o &&
-        o.customer === cid &&
-        o.status === "SUBMITTED"
-      );
+      return o && o.customer === cid && o.status === "SUBMITTED";
     });
     if (validIds.length === 0) return;
 
@@ -487,8 +495,7 @@ function InvoiceFormInner({
       ...o,
       items: (o.items || []).map((item: any) => ({
         ...item,
-        product_obj:
-          products.find((p: any) => p.id === item.product) || null,
+        product_obj: products.find((p: any) => p.id === item.product) || null,
       })),
     }));
     setSelectedOrderIds(next);
@@ -574,7 +581,8 @@ function InvoiceFormInner({
               Invoice line items
             </h3>
             <p className="text-xs text-gray-500">
-              Adjust quantities, discounts, and schemes before creating the invoice.
+              Adjust quantities, discounts, and schemes before creating the
+              invoice.
             </p>
           </div>
           <EditableLineItems
@@ -661,21 +669,26 @@ const InvoiceCreatePage = () => {
     return customers.find((c: any) => c.id === customerParam) ?? null;
   }, [customerParam, customers]);
 
-  const comingFromOrder =
-    Boolean(customerParam) && prefillOrderIds.length > 0;
+  const comingFromOrder = Boolean(customerParam) && prefillOrderIds.length > 0;
 
   return (
     <div className="dashboard-page-offset pb-20 max-w-full min-w-0">
       <div className="flex items-center gap-4 mb-6">
-        <CustomButton variant="outline" size="icon" onClick={() => navigate(-1)}>
-          <ArrowLeft className="h-4 w-4" />
-        </CustomButton>
         <AppBar
           title="Create invoice"
           subTitle={
             comingFromOrder
               ? "Retailer and starting order are filled in. Add more submitted orders below if needed, then review line items."
               : "Select orders, then review and adjust line items before invoicing."
+          }
+          extraButtons={
+            <CustomButton
+              variant="outline"
+              size="icon"
+              onClick={() => navigate(-1)}
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </CustomButton>
           }
         />
       </div>

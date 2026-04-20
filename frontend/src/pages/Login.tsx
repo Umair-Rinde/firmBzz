@@ -1,4 +1,8 @@
-import { useAuth, UserRole, mapBackendRoleToFrontend } from "@/context/AuthContext";
+import {
+  useAuth,
+  UserRole,
+  mapBackendRoleToFrontend,
+} from "@/context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -36,10 +40,17 @@ export default function Login() {
   const location = useLocation();
   const { login, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
-  const [pendingCreds, setPendingCreds] = useState<{ email: string; password: string } | null>(null);
-  const lastSubmittedCreds = useRef<{ email: string; password: string } | null>(null);
+  const [pendingCreds, setPendingCreds] = useState<{
+    email: string;
+    password: string;
+  } | null>(null);
+  const lastSubmittedCreds = useRef<{ email: string; password: string } | null>(
+    null,
+  );
   const [selectedFirmId, setSelectedFirmId] = useState<string>("");
-  const [availableFirms, setAvailableFirms] = useState<Array<{ id: string; name: string; slug: string; role: string }>>([]);
+  const [availableFirms, setAvailableFirms] = useState<
+    Array<{ id: string; name: string; slug: string; role: string }>
+  >([]);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -184,11 +195,7 @@ export default function Login() {
                     type="password"
                   />
 
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={isPending || isSubmitting}
-                  >
+                  <Button type="submit" className="w-full" disabled={isPending}>
                     {isPending ? "Signing In..." : "Sign In"}
                   </Button>
                 </Form>
@@ -198,7 +205,10 @@ export default function Login() {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>Select Firm</Label>
-                <Select value={selectedFirmId} onValueChange={(val) => setSelectedFirmId(val)}>
+                <Select
+                  value={selectedFirmId}
+                  onValueChange={(val) => setSelectedFirmId(val)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a firm" />
                   </SelectTrigger>

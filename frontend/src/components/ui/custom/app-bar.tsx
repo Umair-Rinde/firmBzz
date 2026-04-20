@@ -15,12 +15,13 @@ const AppBar = ({ title, subTitle, extraButtons }: AppBarProps) => {
     <div>
       <div
         className={cn(
-          "fixed z-40 flex items-center justify-between border-b border-[#DAE0E6] bg-[rgba(142,159,193,0)] backdrop-blur-3xl",
+          "fixed z-40 flex items-center gap-5 border-b border-[#DAE0E6] bg-[rgba(142,159,193,0)] backdrop-blur-3xl",
           isMobile
             ? "top-16 left-0 right-0 h-auto min-h-[5.5rem] py-3 px-4"
             : "top-[3.75rem] left-80 right-0 h-[110px] pl-6 pr-10",
         )}
       >
+        {extraButtons && <div className="shrink-0">{extraButtons}</div>}
         <div
           className={cn(
             "flex flex-col gap-2 min-w-0",
@@ -34,7 +35,6 @@ const AppBar = ({ title, subTitle, extraButtons }: AppBarProps) => {
             {subTitle || "hello"}{" "}
           </p>
         </div>
-        {extraButtons && <div className="shrink-0">{extraButtons}</div>}
       </div>
     </div>
   );

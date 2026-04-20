@@ -33,7 +33,10 @@ function schemeBadge(row: any) {
           Buy {row.scheme_buy_qty} Get {row.scheme_free_qty} Free
         </Badge>
         {freeName && (
-          <span className="text-[11px] text-blue-600 truncate max-w-[160px]" title={freeName}>
+          <span
+            className="text-[11px] text-blue-600 truncate max-w-[160px]"
+            title={freeName}
+          >
             Free: {freeName}
           </span>
         )}
@@ -139,26 +142,28 @@ export default function FirmProductPage() {
   return (
     <div className="dashboard-page-offset max-w-full min-w-0">
       <AppBar title="Products" subTitle="Create, update and delete products" />
-      <Datagrid
-        columns={columns}
-        title="Products"
-        url={slug ? `/firm/${slug}/products/` : undefined}
-        filterConfig={productFilterConfig}
-        extraButtons={
-          <div className="flex gap-4">
-            <CustomButton
-              variant="outline"
-              onClick={() => setBulkImportOpen(true)}
-              className="border-primary text-primary hover:bg-primary/5"
-            >
-              Bulk Import <FaUpload className="ml-2" />
-            </CustomButton>
-            <CustomButton onClick={() => setOpen(true)}>
-              Add Product <FaPlus />
-            </CustomButton>
-          </div>
-        }
-      />
+      <div className="mt-5">
+        <Datagrid
+          columns={columns}
+          title="Products"
+          url={slug ? `/firm/${slug}/products/` : undefined}
+          filterConfig={productFilterConfig}
+          extraButtons={
+            <div className="flex gap-4">
+              <CustomButton
+                variant="outline"
+                onClick={() => setBulkImportOpen(true)}
+                className="border-primary text-primary hover:bg-primary/5"
+              >
+                Bulk Import <FaUpload className="ml-2" />
+              </CustomButton>
+              <CustomButton onClick={() => setOpen(true)}>
+                Add Product <FaPlus />
+              </CustomButton>
+            </div>
+          }
+        />
+      </div>
       {open && (
         <VendorProductDrawer
           handleClose={handleClose}

@@ -72,7 +72,7 @@ type Props = {
     rowIndex: number,
     column: string,
     value: any,
-    keyID?: any
+    keyID?: any,
   ) => any[];
   globalSearchText?: string;
   onRowDoubleClick?: any;
@@ -85,7 +85,7 @@ declare module "@tanstack/react-table" {
       rowIndex: number,
       columnId: string,
       value: unknown,
-      keyID?: any
+      keyID?: any,
     ) => void;
   }
 }
@@ -145,7 +145,9 @@ export const Datagrid = ({
     pageSize: tableMetaData?.pageSize || 10,
   });
 
-  const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
+  const [activeFilters, setActiveFilters] = useState<Record<string, string>>(
+    {},
+  );
 
   const hasActiveFilters = Object.keys(activeFilters).length > 0;
 
@@ -193,7 +195,7 @@ export const Datagrid = ({
             [curr.accessorKey]:
               !curr.meta || (curr.meta && !curr.meta["hideColumn"]),
           }),
-          {}
+          {},
         ),
         ...(tableMetaData?.visibilityObject
           ? tableMetaData?.visibilityObject
@@ -227,7 +229,7 @@ export const Datagrid = ({
             rowIndex,
             columnId,
             value,
-            keyID
+            keyID,
           );
           setTableData((prev: any) => ({ ...prev, rows }));
           if (url) {
@@ -258,7 +260,7 @@ export const Datagrid = ({
 
     let startPage = Math.max(
       1,
-      currentPage - Math.floor(maxVisibleButtons / 2)
+      currentPage - Math.floor(maxVisibleButtons / 2),
     );
     let endPage = Math.min(totalPages, startPage + maxVisibleButtons - 1);
 
@@ -284,13 +286,13 @@ export const Datagrid = ({
               {
                 "cursor-default opacity-50 font-thin hover:text-gray-500":
                   !canPreviousPage,
-              }
+              },
             )}
           >
             <PaginationLink
               className={cn(
                 "hover:text-secondary-dark hover:bg-secondary-light text-[#414651] w-20 text-[0.75rem] font-semibold",
-                !canPreviousPage && "hover:text-inherit hover:bg-inherit"
+                !canPreviousPage && "hover:text-inherit hover:bg-inherit",
               )}
             >
               Previous
@@ -302,15 +304,17 @@ export const Datagrid = ({
               <>
                 <PaginationItem
                   onClick={() => table.firstPage()}
-                  className={cn(
-                    "!rounded-[8px] size-8 cursor-pointer !w-[32px]",
-                    { "bg-[rgba(216,231,252,1)]": 0 === currentPage }
-                  )}
+                  className={cn("!rounded-[8px]  cursor-pointer   ", {
+                    "bg-[rgba(216,231,252,1)]": 0 === currentPage,
+                  })}
                 >
                   <PaginationLink
                     className={cn(
-                      "hover:text-secondary-dark !w-[32px] hover:bg-secondary-light text-gray-500",
-                      { "text-secondary-dark hover:text-secondary-dark": currentPage === 0 }
+                      "hover:text-secondary-dark hover:bg-secondary-light text-gray-500",
+                      {
+                        "text-secondary-dark hover:text-secondary-dark":
+                          currentPage === 0,
+                      },
                     )}
                   >
                     1
@@ -325,18 +329,18 @@ export const Datagrid = ({
               <PaginationItem
                 key={page}
                 onClick={() => table.setPageIndex(page - 1)}
-                className={cn(
-                  "!rounded-[8px] !w-[32px] size-8 cursor-pointer",
-                  {
-                    "bg-[rgba(216,231,252,1)] !text-[#1570EF] font-medium":
-                      page === currentPage,
-                  }
-                )}
+                className={cn("!rounded-[8px]   cursor-pointer", {
+                  "bg-[rgba(216,231,252,1)] !text-[#1570EF] font-medium":
+                    page === currentPage,
+                })}
               >
                 <PaginationLink
                   className={cn(
                     "hover:text-secondary-dark hover:bg-secondary-light !w-[32px] text-gray-500",
-                    { "text-red hover:text-secondary-dark": page - 1 === currentPage }
+                    {
+                      "text-red hover:text-secondary-dark":
+                        page - 1 === currentPage,
+                    },
                   )}
                 >
                   {page}
@@ -350,16 +354,20 @@ export const Datagrid = ({
                   <PaginationEllipsis className="text-gray-500" />
                 </PaginationItem>
                 <PaginationItem
-                  onClick={() => canNextPage && table.setPageIndex(totalPages - 1)}
-                  className={cn(
-                    "!rounded-[8px] !w-[32px] size-8 cursor-pointer",
-                    { "bg-secondary-light": totalPages === currentPage }
-                  )}
+                  onClick={() =>
+                    canNextPage && table.setPageIndex(totalPages - 1)
+                  }
+                  className={cn("!rounded-[8px] !w-[32px]  cursor-pointer", {
+                    "bg-secondary-light": totalPages === currentPage,
+                  })}
                 >
                   <PaginationLink
                     className={cn(
                       "hover:text-secondary-dark !w-[32px] hover:bg-secondary-light text-gray-500",
-                      { "text-secondary-dark hover:text-secondary-dark": totalPages === currentPage }
+                      {
+                        "text-secondary-dark hover:text-secondary-dark":
+                          totalPages === currentPage,
+                      },
                     )}
                   >
                     {totalPages}
@@ -372,14 +380,18 @@ export const Datagrid = ({
           <PaginationItem
             className={cn(
               "border border-[#D5D7DA] !rounded-[8px] text-center cursor-pointer text-gray-500",
-              { "cursor-default opacity-50 hover:text-gray-500": currentPage === totalPages }
+              {
+                "cursor-default opacity-50 hover:text-gray-500":
+                  currentPage === totalPages,
+              },
             )}
           >
             <PaginationLink
               onClick={() => canNextPage && table.nextPage()}
               className={cn(
                 "hover:text-secondary-dark hover:bg-secondary-light text-[#414651] text-[0.75rem] w-[60px] font-semibold",
-                currentPage === totalPages && "hover:text-inherit hover:bg-inherit"
+                currentPage === totalPages &&
+                  "hover:text-inherit hover:bg-inherit",
               )}
             >
               Next
@@ -446,11 +458,11 @@ export const Datagrid = ({
       setIsDownloading(true);
       let resp: any = await axios.get(
         `${url}${url?.includes("?") ? "&" : "?"}download=true`,
-        { params: { ...activeFilters, q: debouncedSearch || undefined } }
+        { params: { ...activeFilters, q: debouncedSearch || undefined } },
       );
       downloadFile(
         removePublicFromPath(resp),
-        extractFilenameWithoutExtension(resp)
+        extractFilenameWithoutExtension(resp),
       );
       setExcelloading(false);
       setIsDownloading(false);
@@ -519,14 +531,19 @@ export const Datagrid = ({
 
             return (
               <div key={fc.param} className="flex items-center gap-1.5">
-                <span className="text-xs text-gray-500 font-medium">{fc.label}:</span>
+                <span className="text-xs text-gray-500 font-medium">
+                  {fc.label}:
+                </span>
                 <CustomSelect
                   className="!w-[150px] !h-[34px] !text-[0.8rem]"
                   placeholder={fc.label}
                   options={opts}
                   value={selectedOpt}
                   onChange={(item: any) => {
-                    handleFilterChange(fc.param, item?.value === ALL_VALUE ? null : item?.value);
+                    handleFilterChange(
+                      fc.param,
+                      item?.value === ALL_VALUE ? null : item?.value,
+                    );
                   }}
                   getOptionLabel={(o) => o.label}
                   getOptionValue={(o) => o.value}
@@ -560,7 +577,7 @@ export const Datagrid = ({
                   <th
                     colSpan={header.colSpan}
                     className={cn(
-                      "bg-[rgba(250,250,250,1)] h-[44px] text-start px-3 sm:px-6 font-medium text-[0.75rem] text-[#667085] border-b border-t border-[rgba(233,234,235,1)] relative group"
+                      "bg-[rgba(250,250,250,1)] h-[44px] text-start px-3 sm:px-6 font-medium text-[0.75rem] text-[#667085] border-b border-t border-[rgba(233,234,235,1)] relative group",
                     )}
                     style={{ width: header.getSize(), minWidth: "100%" }}
                     key={header.id}
@@ -569,7 +586,7 @@ export const Datagrid = ({
                       onClick={header.column.getToggleSortingHandler()}
                       className={cn(
                         "flex justify-between items-center !min-h-[44px] h-full",
-                        { "cursor-pointer": header.column.getCanSort() }
+                        { "cursor-pointer": header.column.getCanSort() },
                       )}
                     >
                       <div className="flex justify-start items-center gap-2">
@@ -577,21 +594,34 @@ export const Datagrid = ({
                           ? null
                           : flexRender(
                               header.column.columnDef.header,
-                              header.getContext()
+                              header.getContext(),
                             )}
                         {header.column.getCanSort() &&
                           ({
-                            asc: <TiArrowSortedDown size={15} className="text-inherit text-base" />,
-                            desc: <TiArrowSortedUp size={15} className="text-inherit text-base" />,
+                            asc: (
+                              <TiArrowSortedDown
+                                size={15}
+                                className="text-inherit text-base"
+                              />
+                            ),
+                            desc: (
+                              <TiArrowSortedUp
+                                size={15}
+                                className="text-inherit text-base"
+                              />
+                            ),
                           }[header.column.getIsSorted() as string] ?? (
-                            <TiArrowUnsorted size={15} className="text-inherit text-base" />
+                            <TiArrowUnsorted
+                              size={15}
+                              className="text-inherit text-base"
+                            />
                           ))}
                       </div>
                     </div>
                     <div
                       className={cn(
                         "w-0 group-hover:w-[4px] h-full bg-orange-200 absolute right-0 top-0 hover:bg-primary z-[1000] cursor-col-resize",
-                        { "bg-primary": header.column.getIsResizing() }
+                        { "bg-primary": header.column.getIsResizing() },
                       )}
                       {...{
                         onDoubleClick: () => header.column.resetSize(),
@@ -600,7 +630,9 @@ export const Datagrid = ({
                         style: {
                           transform: header.column.getIsResizing()
                             ? `translateX(${
-                                1 * (table.getState().columnSizingInfo.deltaOffset ?? 0)
+                                1 *
+                                (table.getState().columnSizingInfo
+                                  .deltaOffset ?? 0)
                               }px)`
                             : "",
                         },
@@ -643,12 +675,12 @@ export const Datagrid = ({
                     <td
                       key={cell.id}
                       className={cn(
-                        "h-[72px] px-3 sm:px-6 border-b font-normal leading-[20px] text-[#535862] space-y-[14px] border-[rgba(233,234,235,1)] text-[0.875rem]"
+                        "h-[72px] px-3 sm:px-6 border-b font-normal leading-[20px] text-[#535862] space-y-[14px] border-[rgba(233,234,235,1)] text-[0.875rem]",
                       )}
                     >
                       {flexRender(
                         cell.column.columnDef.cell,
-                        cell.getContext()
+                        cell.getContext(),
                       ) || "-"}
                     </td>
                   ))}
@@ -684,7 +716,7 @@ export const Datagrid = ({
               Entries
             </div>
           </div>
-          <div className="w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+          <div className="">
             <PaginationComponent
               table={table}
               key={"pagination"}
