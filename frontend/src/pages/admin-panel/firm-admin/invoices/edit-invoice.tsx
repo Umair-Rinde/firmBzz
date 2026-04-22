@@ -3,6 +3,7 @@ import CustomButton from "@/components/ui/custom/custom-button";
 import { getApiErrorMessage } from "@/config/api-error";
 import { axios } from "@/config/axios";
 import { queryClient } from "@/config/query-client";
+import { fetchAllFirmProducts } from "@/lib/fetch-all-firm-products";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -10,13 +11,15 @@ import {
   Check,
   ChevronDown,
   CreditCard,
+  Pencil,
   Plus,
   Printer,
   Smartphone,
   Wallet,
   XCircle,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { EditableLineItems, type InvoiceLine } from "./create-invoice";
 import { useNavigate, useParams } from "react-router-dom";
 import { useFirmSlug } from "@/hooks/useFirmSlug";
 import { toast } from "sonner";
@@ -61,7 +64,45 @@ const VALID_STATUS_TRANSITIONS: Record<string, { value: string; label: string; s
   ],
 };
 
-const STATUSES_NO_CHANGE_REQUEST = new Set(["CLOSED", "CANCELLED", "REJECTED"]);
+/** Request changes stays available for every status except closed (per workflow). */
+const STATUSES_NO_CHANGE_REQUEST = new Set(["CLOSED"]);
+
+const INVOICE_EDITABLE_STATUSES = new Set(["PENDING_APPROVAL", "CHANGES_REQUESTED"]);
+
+function invoiceItemsToEditableLines(invoice: any, products: any[]): InvoiceLine[] {
+  const items: any[] = invoice.items || [];
+  const byPid = new Map<string, InvoiceLine>();
+  for (const it of items) {
+    const pid =
+      typeof it.product === "object" && it.product !== null ? it.product.id : it.product;
+    if (!pid) continue;
+    const key = String(pid);
+    const p = products.find((x: any) => x.id === pid);
+    const q = Math.max(1, Number(it.quantity) || 1);
+    const fq = Number(it.free_quantity || 0);
+    const prev = byPid.get(key);
+    if (prev) {
+      prev.quantity += q;
+      prev.free_quantity += fq;
+      prev.original_qty = (prev.original_qty || 0) + q;
+    } else {
+      byPid.set(key, {
+        product:
+          p ||
+          ({
+            id: pid,
+            name: it.product_name ?? "Product",
+          } as any),
+        quantity: q,
+        discount_percent: Number(it.discount_percent || 0),
+        include_scheme: fq > 0,
+        free_quantity: fq,
+        original_qty: q,
+      });
+    }
+  }
+  return Array.from(byPid.values());
+}
 
 const STATUS_STYLE: Record<string, string> = {
   PENDING_APPROVAL: "bg-yellow-100 text-yellow-800 border-yellow-200",
@@ -345,6 +386,8 @@ const InvoiceEditPage = () => {
   const firmId = useFirmSlug();
   const navigate = useNavigate();
   const [rejectionNote, setRejectionNote] = useState("");
+  const [isEditingLines, setIsEditingLines] = useState(false);
+  const [editLines, setEditLines] = useState<InvoiceLine[]>([]);
 
   const invoiceQueryKey = `/firm/${firmId}/invoices/${id}`;
 
@@ -354,6 +397,19 @@ const InvoiceEditPage = () => {
   });
 
   const invoice = invoiceData?.data?.data;
+
+  const { data: products = [] } = useQuery({
+    queryKey: [`/firm/${firmId}/products/`, "invoice-edit", firmId],
+    queryFn: () => fetchAllFirmProducts(firmId!),
+    enabled:
+      !!firmId &&
+      !!invoice &&
+      INVOICE_EDITABLE_STATUSES.has(invoice.status),
+  });
+
+  useEffect(() => {
+    setIsEditingLines(false);
+  }, [id]);
 
   const { mutate: approveInvoice, isPending: isApproving } = useMutation({
     mutationFn: () => axios.post(`/firm/${firmId}/invoices/${id}/approve/`),
@@ -379,6 +435,19 @@ const InvoiceEditPage = () => {
     },
   });
 
+  const { mutate: updateInvoiceLines, isPending: isSavingLines } = useMutation({
+    mutationFn: (line_items: any[]) =>
+      axios.put(`/firm/${firmId}/invoices/${id}/`, { line_items }),
+    onSuccess: () => {
+      toast.success("Invoice line items saved");
+      queryClient.invalidateQueries({ queryKey: [invoiceQueryKey] });
+      setIsEditingLines(false);
+    },
+    onError: (err: unknown) => {
+      toast.error(getApiErrorMessage(err, "Failed to update invoice"));
+    },
+  });
+
   const openPrintPage = () => {
     window.open(`/dashboard/${firmId}/invoices/${id}/print`, "_blank");
   };
@@ -390,6 +459,30 @@ const InvoiceEditPage = () => {
   const handleReject = () => {
     if (!rejectionNote.trim()) { toast.error("Please provide a note for requesting changes"); return; }
     rejectInvoice({ note: rejectionNote });
+  };
+
+  const canEditLines =
+    INVOICE_EDITABLE_STATUSES.has(invoice.status) &&
+    (invoice.payments?.length ?? 0) === 0;
+
+  const startEditLines = () => {
+    setEditLines(invoiceItemsToEditableLines(invoice, products));
+    setIsEditingLines(true);
+  };
+
+  const handleSaveEditLines = () => {
+    if (editLines.length === 0) {
+      toast.error("At least one line item is required");
+      return;
+    }
+    const line_items = editLines.map((l) => ({
+      product: l.product.id,
+      quantity: l.quantity,
+      discount_percent: l.product.no_discount ? 0 : l.discount_percent,
+      include_scheme: l.include_scheme,
+      free_quantity: l.include_scheme ? l.free_quantity : 0,
+    }));
+    updateInvoiceLines(line_items);
   };
 
   const totalDisplay = invoice.total_amount != null ? Number(invoice.total_amount).toFixed(2) : "—";
@@ -484,8 +577,9 @@ const InvoiceEditPage = () => {
       )}
 
       {invoice.auto_closes_at &&
-        !STATUSES_NO_CHANGE_REQUEST.has(invoice.status) &&
-        invoice.status !== "CHANGES_REQUESTED" && (
+        !["CLOSED", "CANCELLED", "REJECTED", "CHANGES_REQUESTED"].includes(
+          invoice.status,
+        ) && (
         <div className="mb-6 p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700">
           <span className="font-medium text-slate-800">Auto-close: </span>
           This invoice will be marked closed automatically 2 days after delivery
@@ -564,54 +658,94 @@ const InvoiceEditPage = () => {
         )}
 
         <div>
-          <h3 className="text-lg font-semibold mb-4">Line items</h3>
-          <div className="overflow-x-auto rounded-lg border border-gray-200">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="bg-gray-50 text-left font-medium text-gray-500">
-                  <th className="p-3 border-b">Product</th>
-                  <th className="p-3 border-b">Batch expiry</th>
-                  <th className="p-3 border-b text-right">Qty</th>
-                  <th className="p-3 border-b text-right">Free</th>
-                  <th className="p-3 border-b text-right">Disc %</th>
-                  <th className="p-3 border-b text-right">GST %</th>
-                  <th className="p-3 border-b text-right">Rate (₹)</th>
-                  <th className="p-3 border-b text-right">Line (₹)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(invoice.items || []).map((item: any, index: number) => {
-                  const lineAmt =
-                    item.line_total != null && item.line_total !== ""
-                      ? Number(item.line_total)
-                      : item.amount != null ? Number(item.amount) : null;
-                  return (
-                    <tr key={item.id || index} className="border-b last:border-0">
-                      <td className="p-3">{item.product_name ?? item.product}</td>
-                      <td className="p-3 text-amber-700">{item.batch_expiry ?? "—"}</td>
-                      <td className="p-3 text-right">{item.quantity}</td>
-                      <td className="p-3 text-right">
-                        {item.free_quantity != null && item.free_quantity > 0 ? item.free_quantity : "—"}
-                      </td>
-                      <td className="p-3 text-right">
-                        {item.discount_percent != null && Number(item.discount_percent) > 0
-                          ? `${Number(item.discount_percent).toFixed(2)}` : "—"}
-                      </td>
-                      <td className="p-3 text-right">
-                        {item.gst_percent != null ? `${Number(item.gst_percent).toFixed(2)}` : "—"}
-                      </td>
-                      <td className="p-3 text-right">
-                        {item.rate != null ? `₹${Number(item.rate).toFixed(2)}` : "—"}
-                      </td>
-                      <td className="p-3 text-right font-medium">
-                        {lineAmt != null && !Number.isNaN(lineAmt) ? `₹${lineAmt.toFixed(2)}` : "—"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <h3 className="text-lg font-semibold">Line items</h3>
+            {canEditLines && !isEditingLines && (
+              <CustomButton
+                variant="outline"
+                size="sm"
+                className="gap-2 border-teal-200 text-teal-800 hover:bg-teal-50 shrink-0"
+                onClick={startEditLines}
+                disabled={products.length === 0}
+              >
+                <Pencil className="w-4 h-4" />
+                Edit line items
+              </CustomButton>
+            )}
           </div>
+          {isEditingLines ? (
+            <div className="space-y-4">
+              <div className="bg-gray-50/80 border border-gray-200 rounded-lg p-4">
+                <EditableLineItems
+                  lines={editLines}
+                  setLines={setEditLines}
+                  products={products}
+                  retailerDefaultDiscount={0}
+                />
+              </div>
+              <div className="flex flex-wrap justify-end gap-2">
+                <CustomButton
+                  variant="outline"
+                  type="button"
+                  onClick={() => setIsEditingLines(false)}
+                  disabled={isSavingLines}
+                >
+                  Cancel
+                </CustomButton>
+                <CustomButton type="button" onClick={handleSaveEditLines} isPending={isSavingLines}>
+                  Save line items
+                </CustomButton>
+              </div>
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border border-gray-200">
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr className="bg-gray-50 text-left font-medium text-gray-500">
+                    <th className="p-3 border-b">Product</th>
+                    <th className="p-3 border-b">Batch expiry</th>
+                    <th className="p-3 border-b text-right">Qty</th>
+                    <th className="p-3 border-b text-right">Free</th>
+                    <th className="p-3 border-b text-right">Disc %</th>
+                    <th className="p-3 border-b text-right">GST %</th>
+                    <th className="p-3 border-b text-right">Rate (₹)</th>
+                    <th className="p-3 border-b text-right">Line (₹)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(invoice.items || []).map((item: any, index: number) => {
+                    const lineAmt =
+                      item.line_total != null && item.line_total !== ""
+                        ? Number(item.line_total)
+                        : item.amount != null ? Number(item.amount) : null;
+                    return (
+                      <tr key={item.id || index} className="border-b last:border-0">
+                        <td className="p-3">{item.product_name ?? item.product}</td>
+                        <td className="p-3 text-amber-700">{item.batch_expiry ?? "—"}</td>
+                        <td className="p-3 text-right">{item.quantity}</td>
+                        <td className="p-3 text-right">
+                          {item.free_quantity != null && item.free_quantity > 0 ? item.free_quantity : "—"}
+                        </td>
+                        <td className="p-3 text-right">
+                          {item.discount_percent != null && Number(item.discount_percent) > 0
+                            ? `${Number(item.discount_percent).toFixed(2)}` : "—"}
+                        </td>
+                        <td className="p-3 text-right">
+                          {item.gst_percent != null ? `${Number(item.gst_percent).toFixed(2)}` : "—"}
+                        </td>
+                        <td className="p-3 text-right">
+                          {item.rate != null ? `₹${Number(item.rate).toFixed(2)}` : "—"}
+                        </td>
+                        <td className="p-3 text-right font-medium">
+                          {lineAmt != null && !Number.isNaN(lineAmt) ? `₹${lineAmt.toFixed(2)}` : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         <div className="flex justify-end pt-4 border-t border-gray-100">

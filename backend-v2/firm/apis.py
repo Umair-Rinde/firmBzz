@@ -27,6 +27,10 @@ from .serializers import (
     CustomerSerializer,
     InvoiceSerializer,
     InvoiceFromRetailerOrdersSerializer,
+    InvoiceUpdateSerializer,
+    build_lines_from_line_overrides,
+    apply_invoice_lines_to_invoice,
+    reverse_invoice_line_allocations,
     RetailerOrderSerializer,
     RetailerOrderCreateSerializer,
     PaymentSerializer,
@@ -1275,8 +1279,8 @@ class RetailerOrderService:
 
 
 class InvoiceService:
-    """Statuses where change requests are not allowed (invoice is finished)."""
-    STATUSES_NO_CHANGE_REQUEST = frozenset({"CLOSED", "CANCELLED", "REJECTED"})
+    """Terminal / finished states where requesting changes is not allowed."""
+    REQUEST_CHANGES_BLOCKED_STATUSES = frozenset({"CLOSED", "CANCELLED", "REJECTED"})
 
     @staticmethod
     def auto_close_delivered_invoices(firm=None):
@@ -1386,27 +1390,84 @@ class InvoiceService:
         except Invoice.DoesNotExist:
             return BaseResponse(success=False, message="Invoice not found", status=404)
 
+    INVOICE_EDITABLE_STATUSES = frozenset({"PENDING_APPROVAL", "CHANGES_REQUESTED"})
+
     @staticmethod
-    def update_invoice(firm_slug, invoice_id, data):
+    def update_invoice(firm_slug, invoice_id, data, user):
         try:
             firm = Firm.objects.get(slug=firm_slug)
         except Firm.DoesNotExist:
             return BaseResponse(success=False, message="Firm not found", status=404)
 
+        serializer = InvoiceUpdateSerializer(data=data, context={"firm": firm})
+        if not serializer.is_valid():
+            return BaseResponse(
+                success=False,
+                message="Invalid data",
+                errors=serializer.errors,
+                status=400,
+            )
+
         try:
-            invoice = Invoice.objects.get(id=invoice_id, firm=firm)
+            invoice = Invoice.objects.select_related("customer").get(
+                id=invoice_id, firm=firm
+            )
         except Invoice.DoesNotExist:
             return BaseResponse(success=False, message="Invoice not found", status=404)
 
-        if invoice.status == "APPROVED":
+        if invoice.status not in InvoiceService.INVOICE_EDITABLE_STATUSES:
             return BaseResponse(
-                success=False, message="Cannot edit an approved invoice", status=400
+                success=False,
+                message=(
+                    "Invoice lines can only be edited while pending approval "
+                    "or after changes are requested."
+                ),
+                status=400,
             )
 
+        if Payment.objects.filter(invoice_id=invoice_id).exists():
+            return BaseResponse(
+                success=False,
+                message="Cannot edit an invoice that has payments recorded.",
+                status=400,
+            )
+
+        overrides = serializer.validated_data["line_items"]
+        lines_to_invoice = build_lines_from_line_overrides(
+            overrides, invoice.customer
+        )
+
+        try:
+            with transaction.atomic():
+                invoice_locked = Invoice.objects.select_related("customer").select_for_update().get(
+                    id=invoice_id, firm=firm
+                )
+                reverse_invoice_line_allocations(firm, user, invoice_locked)
+                apply_invoice_lines_to_invoice(
+                    invoice_locked,
+                    firm,
+                    user,
+                    lines_to_invoice,
+                    "Invoice revision",
+                )
+        except DRFValidationError as ex:
+            detail = ex.detail
+            if isinstance(detail, list) and detail:
+                msg = str(detail[0])
+            else:
+                msg = str(detail)
+            return BaseResponse(success=False, message=msg, status=400)
+
+        invoice = (
+            Invoice.objects.select_related("customer", "created_by", "approved_by")
+            .prefetch_related("items__product", "items__product_batch", "source_orders")
+            .get(id=invoice_id, firm=firm)
+        )
+        response_serializer = InvoiceSerializer(invoice)
         return BaseResponse(
-            success=False,
-            message="Invoice lines are fixed at creation (from retailer orders). Use approve / request-changes flows.",
-            status=400,
+            message="Invoice updated successfully",
+            data=response_serializer.data,
+            status=200,
         )
         
     @staticmethod
@@ -1478,10 +1539,10 @@ class InvoiceService:
         except Invoice.DoesNotExist:
             return BaseResponse(success=False, message="Invoice not found", status=404)
 
-        if invoice.status in InvoiceService.STATUSES_NO_CHANGE_REQUEST:
+        if invoice.status in InvoiceService.REQUEST_CHANGES_BLOCKED_STATUSES:
             return BaseResponse(
                 success=False,
-                message="Changes cannot be requested once the invoice is closed, cancelled, or rejected.",
+                message="Changes cannot be requested for closed, cancelled, or rejected invoices.",
                 status=400,
             )
 

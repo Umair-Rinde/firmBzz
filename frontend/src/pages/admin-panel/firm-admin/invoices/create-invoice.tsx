@@ -15,7 +15,7 @@ import { useFirmSlug } from "@/hooks/useFirmSlug";
 import { toast } from "sonner";
 import * as Yup from "yup";
 
-interface InvoiceLine {
+export interface InvoiceLine {
   product: any;
   quantity: number;
   discount_percent: number;
@@ -24,16 +24,47 @@ interface InvoiceLine {
   original_qty: number;
 }
 
-function mergeOrderLines(orders: any[]): InvoiceLine[] {
+/**
+ * Line discount for new invoice rows: product catalog (vendor list) first,
+ * then retailer default. Ignores catalog when no_discount is set on the product.
+ */
+export function defaultInvoiceLineDiscountPercent(
+  product: any,
+  retailerDefaultDiscount: number,
+): number {
+  if (!product || product.no_discount) return 0;
+  const catalog = Number(product.product_discount ?? 0);
+  if (Number.isFinite(catalog) && catalog > 0) {
+    return Math.min(100, Math.max(0, catalog));
+  }
+  const r = Number(retailerDefaultDiscount ?? 0);
+  return Number.isFinite(r) ? Math.min(100, Math.max(0, r)) : 0;
+}
+
+function mergeOrderLines(
+  orders: any[],
+  retailerDefaultDiscount: number,
+): InvoiceLine[] {
   const map = new Map<string, InvoiceLine>();
   for (const o of orders) {
     for (const line of o.items || []) {
       const pid = line.product;
       const existing = map.get(pid);
       const product =
-        typeof line.product_obj === "object" ? line.product_obj : null;
+        typeof line.product_obj === "object" && line.product_obj
+          ? line.product_obj
+          : null;
       const qty = Number(line.quantity);
-      const disc = Number(line.applied_discount_percent ?? 0);
+      const orderDisc = Number(line.applied_discount_percent ?? 0);
+      const disc =
+        product?.no_discount === true
+          ? 0
+          : orderDisc > 0
+            ? Math.min(100, orderDisc)
+            : defaultInvoiceLineDiscountPercent(
+                product || {},
+                retailerDefaultDiscount,
+              );
       const scheme = line.scheme_applied || {};
       const freeQty = Number(scheme.free_qty ?? 0);
       if (existing) {
@@ -100,7 +131,7 @@ function OrderSelector({
   );
 }
 
-function EditableLineItems({
+export function EditableLineItems({
   lines,
   setLines,
   products,
@@ -125,11 +156,10 @@ function EditableLineItems({
       toast.error("Product already in the list");
       return;
     }
-    const disc = product.no_discount
-      ? 0
-      : Number.isFinite(retailerDefaultDiscount)
-        ? retailerDefaultDiscount
-        : 0;
+    const disc = defaultInvoiceLineDiscountPercent(
+      product,
+      retailerDefaultDiscount,
+    );
     const hasScheme = product.scheme_type === "BUY_X_GET_Y";
     setLines((prev) => [
       ...prev,
@@ -492,13 +522,19 @@ function InvoiceFormInner({
       })),
     }));
     setSelectedOrderIds(next);
-    setLines(mergeOrderLines(enriched));
+    setLines(
+      mergeOrderLines(
+        enriched,
+        Number(values.customer?.default_discount_percent ?? 0),
+      ),
+    );
     prefillAppliedRef.current = true;
   }, [
     allOrders,
     prefillOrderIds,
     products,
     values.customer?.id,
+    values.customer?.default_discount_percent,
     setLines,
     setSelectedOrderIds,
   ]);
@@ -524,11 +560,23 @@ function InvoiceFormInner({
             product_obj: productMap.get(item.product) || null,
           })),
         }));
-        setLines(mergeOrderLines(enriched));
+        setLines(
+          mergeOrderLines(
+            enriched,
+            Number(values.customer?.default_discount_percent ?? 0),
+          ),
+        );
         return next;
       });
     },
-    [allOrders, productMap, setSelectedOrderIds, setLines],
+    [
+      allOrders,
+      productMap,
+      setSelectedOrderIds,
+      setLines,
+      values.customer?.default_discount_percent,
+      values.customer?.id,
+    ],
   );
 
   return (

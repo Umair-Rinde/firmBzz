@@ -614,6 +614,117 @@ class InvoiceLineOverrideSerializer(serializers.Serializer):
     free_quantity = serializers.IntegerField(min_value=0, required=False, default=0)
 
 
+def build_lines_from_line_overrides(overrides, customer):
+    """Validated override dicts → internal line specs (same shape as create-invoice override path)."""
+    lines_to_invoice = []
+    for ov in overrides:
+        product = ov["product"]
+        qty = ov["quantity"]
+        disc = Decimal(str(ov.get("discount_percent", 0)))
+        if product.no_discount:
+            disc = Decimal("0")
+        include_scheme = ov.get("include_scheme", True)
+        free_qty = ov.get("free_quantity", 0) if include_scheme else 0
+        rate = effective_unit_rate(product, customer)
+        lines_to_invoice.append({
+            "product": product,
+            "quantity": qty,
+            "rate": rate,
+            "discount_percent": disc,
+            "free_quantity": free_qty,
+            "gst_percent": product.gst_percent,
+        })
+    return lines_to_invoice
+
+
+def apply_invoice_lines_to_invoice(invoice, firm, user, lines_to_invoice, ledger_note):
+    """
+    FEFO allocation, stock out, invoice items & ledger. Sets invoice.total_amount.
+    Caller must have cleared prior lines and reversed stock when editing.
+    """
+    total = Decimal("0")
+    for ln in lines_to_invoice:
+        product = ln["product"]
+        allocations = allocate_batches_fefo(product, ln["quantity"])
+        disc = ln["discount_percent"]
+        for batch, take in allocations:
+            batch.quantity -= take
+            batch.save(update_fields=["quantity", "updated_on"])
+            base_amt = Decimal(take) * ln["rate"]
+            if disc > 0:
+                base_amt = base_amt * (Decimal("100") - disc) / Decimal("100")
+            line_amt = line_total_inclusive(base_amt, ln["gst_percent"])
+            total += line_amt
+            inv_item = InvoiceItem.objects.create(
+                invoice=invoice,
+                product=product,
+                product_batch=batch,
+                quantity=take,
+                rate=ln["rate"],
+                free_quantity=ln["free_quantity"],
+                discount_percent=disc,
+                gst_percent=ln["gst_percent"],
+                line_total=line_amt,
+            )
+            StockLedgerEntry.objects.create(
+                firm=firm,
+                product=product,
+                product_batch=batch,
+                quantity_delta=-take,
+                entry_type=StockLedgerEntryType.INVOICE_SALE,
+                invoice_item=inv_item,
+                created_by=user,
+                note=ledger_note,
+            )
+    invoice.total_amount = total.quantize(Decimal("0.01"))
+    invoice.save(update_fields=["total_amount", "updated_on"])
+    return total
+
+
+def reverse_invoice_line_allocations(firm, user, invoice):
+    """Return stock to batches, ledger correction rows, delete all invoice line rows."""
+    items_qs = InvoiceItem.objects.filter(invoice=invoice).select_related(
+        "product", "product_batch"
+    )
+    for inv_item in items_qs:
+        batch = inv_item.product_batch
+        if batch is not None:
+            batch_locked = ProductBatch.objects.select_for_update().get(pk=batch.pk)
+            batch_locked.quantity += inv_item.quantity
+            batch_locked.save(update_fields=["quantity", "updated_on"])
+        StockLedgerEntry.objects.create(
+            firm=firm,
+            product=inv_item.product,
+            product_batch=batch,
+            quantity_delta=inv_item.quantity,
+            entry_type=StockLedgerEntryType.MANUAL,
+            manual_reason=StockManualReason.CORRECTION,
+            note="Invoice revision — stock returned to batch",
+            created_by=user,
+        )
+    items_qs.delete()
+
+
+class InvoiceUpdateSerializer(serializers.Serializer):
+    """Replace all invoice lines (pending approval or changes requested; no payments)."""
+
+    line_items = InvoiceLineOverrideSerializer(many=True)
+
+    def validate_line_items(self, items):
+        if not items:
+            raise ValidationError("At least one line item is required.")
+        firm = self.context["firm"]
+        for item in items:
+            product = item["product"]
+            if product.firm_id != firm.id:
+                raise ValidationError(f"Product {product.name} does not belong to this firm.")
+            if product.no_discount and Decimal(str(item.get("discount_percent", 0))) > 0:
+                raise ValidationError(
+                    f"Product '{product.name}' has no_discount enabled — discount must be 0."
+                )
+        return items
+
+
 class InvoiceFromRetailerOrdersSerializer(serializers.Serializer):
     """
     Firm admin: attach one or more SUBMITTED retailer orders (same customer) → invoice.
@@ -677,24 +788,7 @@ class InvoiceFromRetailerOrdersSerializer(serializers.Serializer):
         overrides = validated_data.get("line_items")
 
         if overrides:
-            lines_to_invoice = []
-            for ov in overrides:
-                product = ov["product"]
-                qty = ov["quantity"]
-                disc = Decimal(str(ov.get("discount_percent", 0)))
-                if product.no_discount:
-                    disc = Decimal("0")
-                include_scheme = ov.get("include_scheme", True)
-                free_qty = ov.get("free_quantity", 0) if include_scheme else 0
-                rate = effective_unit_rate(product, customer)
-                lines_to_invoice.append({
-                    "product": product,
-                    "quantity": qty,
-                    "rate": rate,
-                    "discount_percent": disc,
-                    "free_quantity": free_qty,
-                    "gst_percent": product.gst_percent,
-                })
+            lines_to_invoice = build_lines_from_line_overrides(overrides, customer)
         else:
             lines_to_invoice = []
             for ro in orders:
@@ -717,43 +811,13 @@ class InvoiceFromRetailerOrdersSerializer(serializers.Serializer):
             )
             invoice.source_orders.set(orders)
 
-            total = Decimal("0")
-            for ln in lines_to_invoice:
-                product = ln["product"]
-                allocations = allocate_batches_fefo(product, ln["quantity"])
-                disc = ln["discount_percent"]
-                for batch, take in allocations:
-                    batch.quantity -= take
-                    batch.save(update_fields=["quantity", "updated_on"])
-                    base_amt = Decimal(take) * ln["rate"]
-                    if disc > 0:
-                        base_amt = base_amt * (Decimal("100") - disc) / Decimal("100")
-                    line_amt = line_total_inclusive(base_amt, ln["gst_percent"])
-                    total += line_amt
-                    inv_item = InvoiceItem.objects.create(
-                        invoice=invoice,
-                        product=product,
-                        product_batch=batch,
-                        quantity=take,
-                        rate=ln["rate"],
-                        free_quantity=ln["free_quantity"],
-                        discount_percent=disc,
-                        gst_percent=ln["gst_percent"],
-                        line_total=line_amt,
-                    )
-                    StockLedgerEntry.objects.create(
-                        firm=firm,
-                        product=product,
-                        product_batch=batch,
-                        quantity_delta=-take,
-                        entry_type=StockLedgerEntryType.INVOICE_SALE,
-                        invoice_item=inv_item,
-                        created_by=user,
-                        note="Invoice from retailer orders",
-                    )
-
-            invoice.total_amount = total.quantize(Decimal("0.01"))
-            invoice.save(update_fields=["total_amount", "updated_on"])
+            apply_invoice_lines_to_invoice(
+                invoice,
+                firm,
+                user,
+                lines_to_invoice,
+                "Invoice from retailer orders",
+            )
 
             for o in orders:
                 o.status = RetailerOrderStatusChoices.INVOICED

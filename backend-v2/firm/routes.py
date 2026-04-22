@@ -566,14 +566,18 @@ class InvoiceDetailAPIView(APIView):
 
     @extend_schema(
         summary="Update Invoice",
-        description="Update an existing pending invoice.",
+        description=(
+            "Replace all line items (FEFO stock re-allocation). Allowed when status is "
+            "PENDING_APPROVAL or CHANGES_REQUESTED and the invoice has no recorded payments. "
+            "Body: { line_items: [ { product, quantity, discount_percent?, include_scheme?, free_quantity? } ] }."
+        ),
         tags=["Invoices"]
     )
     def put(self, request, slug, invoice_id):
         denied = _enforce_firm_context(request, slug)
         if denied:
             return denied
-        return apis.InvoiceService.update_invoice(slug, invoice_id, request.data)
+        return apis.InvoiceService.update_invoice(slug, invoice_id, request.data, request.user)
 
 
 class InvoiceApproveAPIView(APIView):
