@@ -5,11 +5,12 @@ import { getApiErrorMessage } from "@/config/api-error";
 import { axios } from "@/config/axios";
 import { queryClient } from "@/config/query-client";
 import { useQuery } from "@/hooks/useQuerry";
-import { useMutation } from "@tanstack/react-query";
+import { fetchAllFirmProducts } from "@/lib/fetch-all-firm-products";
+import { useMutation, useQuery as useRQQuery } from "@tanstack/react-query";
 import { Form, Formik, useFormikContext } from "formik";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useFirmSlug } from "@/hooks/useFirmSlug";
 import { toast } from "sonner";
 import * as Yup from "yup";
@@ -143,9 +144,7 @@ function EditableLineItems({
     ]);
   };
 
-  const inStockProducts = products.filter(
-    (p: any) => p.is_active && Number(p.available_quantity ?? 0) > 0,
-  );
+  const catalogProducts = products.filter((p: any) => p.is_active);
 
   return (
     <div className="space-y-3">
@@ -280,7 +279,7 @@ function EditableLineItems({
         </table>
       </div>
 
-      <AddProductRow products={inStockProducts} onAdd={addLine} />
+      <AddProductRow products={catalogProducts} onAdd={addLine} />
     </div>
   );
 }
@@ -299,10 +298,13 @@ function AddProductRow({
           <div className="flex-1">
             <SearchableSelect
               name="newProduct"
-              placeholder="Search product to add..."
+              placeholder="Search by product code or name..."
               options={products}
               getOptionLabel={(p: any) =>
                 `${p.product_code ? `[${p.product_code}] ` : ""}${p.name} (stock ${p.available_quantity ?? 0})`
+              }
+              getOptionSearchText={(p: any) =>
+                [p.product_code, p.name].filter(Boolean).join(" ")
               }
               getOptionValue={(p: any) => p.id}
               onSelect={(p) => {
@@ -338,12 +340,16 @@ function InvoiceFormBody({
   products,
   allOrders,
   navigate,
+  initialCustomer,
+  prefillOrderIds,
 }: {
   firmId: string;
   customers: any[];
   products: any[];
   allOrders: any[];
   navigate: ReturnType<typeof useNavigate>;
+  initialCustomer: any | null;
+  prefillOrderIds: string[];
 }) {
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(
     new Set(),
@@ -364,7 +370,8 @@ function InvoiceFormBody({
 
   return (
     <Formik
-      initialValues={{ customer: null as any }}
+      enableReinitialize
+      initialValues={{ customer: initialCustomer as any }}
       validationSchema={Yup.object().shape({
         customer: Yup.object().nullable().required("Customer is required"),
       })}
@@ -391,7 +398,6 @@ function InvoiceFormBody({
     >
       {() => (
         <InvoiceFormInner
-          firmId={firmId}
           customers={customers}
           products={products}
           allOrders={allOrders}
@@ -401,6 +407,7 @@ function InvoiceFormBody({
           setLines={setLines}
           isPending={isPending}
           navigate={navigate}
+          prefillOrderIds={prefillOrderIds}
         />
       )}
     </Formik>
@@ -408,7 +415,6 @@ function InvoiceFormBody({
 }
 
 function InvoiceFormInner({
-  firmId,
   customers,
   products,
   allOrders,
@@ -418,8 +424,8 @@ function InvoiceFormInner({
   setLines,
   isPending,
   navigate,
+  prefillOrderIds,
 }: {
-  firmId: string;
   customers: any[];
   products: any[];
   allOrders: any[];
@@ -429,6 +435,7 @@ function InvoiceFormInner({
   setLines: React.Dispatch<React.SetStateAction<InvoiceLine[]>>;
   isPending: boolean;
   navigate: ReturnType<typeof useNavigate>;
+  prefillOrderIds: string[];
 }) {
   const { values } = useFormikContext<{ customer: any }>();
 
@@ -440,10 +447,61 @@ function InvoiceFormInner({
     );
   }, [allOrders, values.customer]);
 
+  const prevCustomerIdRef = useRef<string | undefined>(undefined);
   useEffect(() => {
-    setSelectedOrderIds(new Set());
-    setLines([]);
-  }, [values.customer?.id]);
+    const id = values.customer?.id as string | undefined;
+    if (
+      prevCustomerIdRef.current !== undefined &&
+      id !== undefined &&
+      id !== prevCustomerIdRef.current
+    ) {
+      setSelectedOrderIds(new Set());
+      setLines([]);
+    }
+    prevCustomerIdRef.current = id;
+  }, [values.customer?.id, setLines, setSelectedOrderIds]);
+
+  const prefillAppliedRef = useRef(false);
+  useEffect(() => {
+    if (
+      prefillAppliedRef.current ||
+      prefillOrderIds.length === 0 ||
+      !values.customer?.id
+    ) {
+      return;
+    }
+    const cid = values.customer.id as string;
+    const validIds = prefillOrderIds.filter((oid) => {
+      const o = allOrders.find((x: any) => x.id === oid);
+      return (
+        o &&
+        o.customer === cid &&
+        o.status === "SUBMITTED"
+      );
+    });
+    if (validIds.length === 0) return;
+
+    const next = new Set(validIds);
+    const selectedOrders = allOrders.filter((o: any) => next.has(o.id));
+    const enriched = selectedOrders.map((o: any) => ({
+      ...o,
+      items: (o.items || []).map((item: any) => ({
+        ...item,
+        product_obj:
+          products.find((p: any) => p.id === item.product) || null,
+      })),
+    }));
+    setSelectedOrderIds(next);
+    setLines(mergeOrderLines(enriched));
+    prefillAppliedRef.current = true;
+  }, [
+    allOrders,
+    prefillOrderIds,
+    products,
+    values.customer?.id,
+    setLines,
+    setSelectedOrderIds,
+  ]);
 
   const productMap = useMemo(() => {
     const m = new Map<string, any>();
@@ -559,6 +617,23 @@ function InvoiceFormInner({
 const InvoiceCreatePage = () => {
   const firmId = useFirmSlug();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  const customerParam = searchParams.get("customer")?.trim() ?? "";
+
+  const prefillOrderIds = useMemo(() => {
+    const ids: string[] = [];
+    const single = searchParams.get("order")?.trim();
+    const multi = searchParams.get("orders");
+    if (single) ids.push(single);
+    if (multi) {
+      for (const part of multi.split(",")) {
+        const t = part.trim();
+        if (t && !ids.includes(t)) ids.push(t);
+      }
+    }
+    return ids;
+  }, [searchParams]);
 
   const { data: customersRaw } = useQuery<any>({
     queryKey: [`/firm/${firmId}/customers/`, { limit: 500 }],
@@ -572,15 +647,22 @@ const InvoiceCreatePage = () => {
     enabled: !!firmId,
   });
 
-  const { data: productsRaw } = useQuery<any>({
-    queryKey: [`/firm/${firmId}/products/`, { limit: 500 }],
-    select: (res: any) => res?.data?.data?.rows ?? [],
+  const { data: products = [] } = useRQQuery({
+    queryKey: [`/firm/${firmId}/products/`, { allPages: true }],
+    queryFn: () => fetchAllFirmProducts(firmId!),
     enabled: !!firmId,
   });
 
   const customers = (customersRaw || []).filter((c: any) => c.is_active);
   const allOrders = ordersRaw || [];
-  const products = productsRaw || [];
+
+  const initialCustomer = useMemo(() => {
+    if (!customerParam || customers.length === 0) return null;
+    return customers.find((c: any) => c.id === customerParam) ?? null;
+  }, [customerParam, customers]);
+
+  const comingFromOrder =
+    Boolean(customerParam) && prefillOrderIds.length > 0;
 
   return (
     <div className="dashboard-page-offset pb-20 max-w-full min-w-0">
@@ -590,7 +672,11 @@ const InvoiceCreatePage = () => {
         </CustomButton>
         <AppBar
           title="Create invoice"
-          subTitle="Select orders, then review and adjust line items before invoicing."
+          subTitle={
+            comingFromOrder
+              ? "Retailer and starting order are filled in. Add more submitted orders below if needed, then review line items."
+              : "Select orders, then review and adjust line items before invoicing."
+          }
         />
       </div>
 
@@ -601,6 +687,8 @@ const InvoiceCreatePage = () => {
           products={products}
           allOrders={allOrders}
           navigate={navigate}
+          initialCustomer={initialCustomer}
+          prefillOrderIds={prefillOrderIds}
         />
       )}
     </div>

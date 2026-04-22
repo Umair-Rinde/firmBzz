@@ -351,6 +351,25 @@ class VendorDetailAPIView(APIView):
         return apis.VendorService.delete_vendor(slug, vendor_id)
 
 
+class CustomerFssaiExpiryAlertsAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    schema = AutoSchema()
+
+    @extend_schema(
+        summary="FSSAI expiry alerts (retailers)",
+        description=(
+            "Retailers with FSSAI already expired or expiring within the next 7 days. "
+            "Only includes records that have fssai_expiry set."
+        ),
+        tags=["Customers"],
+    )
+    def get(self, request, slug):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
+        return apis.CustomerService.list_fssai_expiry_alerts(slug)
+
+
 class CustomerListCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
     schema = AutoSchema()
@@ -495,7 +514,9 @@ class RetailerOrderDetailAPIView(APIView):
         denied = _enforce_firm_context(request, slug)
         if denied:
             return denied
-        return apis.RetailerOrderService.get_retailer_order(slug, order_id)
+        return apis.RetailerOrderService.get_retailer_order(
+            slug, order_id, user=request.user
+        )
 
 
 class InvoiceListCreateAPIView(APIView):
@@ -577,7 +598,10 @@ class InvoiceRequestChangesAPIView(APIView):
 
     @extend_schema(
         summary="Request Changes to Invoice",
-        description="Request changes to an invoice. Requires a note.",
+        description=(
+            "Request changes to an invoice (requires a note). Allowed for any status except "
+            "CLOSED, CANCELLED, or REJECTED — including after approval and through delivery / payment."
+        ),
         tags=["Invoices"]
     )
     def post(self, request, slug, invoice_id):
@@ -628,7 +652,10 @@ class InvoiceStatusUpdateAPIView(APIView):
         description=(
             "Transition an invoice through the lifecycle: "
             "APPROVED → OUT_FOR_DELIVERY → DELIVERED → PARTIALLY_PAID → PAID → CLOSED. "
-            "CANCELLED is allowed from most states."
+            "CANCELLED is allowed from most states. "
+            "Delivered invoices record delivered_at; after 2 days in DELIVERED / PARTIALLY_PAID / PAID "
+            "they are auto-closed (also when listing or viewing an invoice, and via "
+            "`manage.py auto_close_delivered_invoices`)."
         ),
         tags=["Invoices"],
     )

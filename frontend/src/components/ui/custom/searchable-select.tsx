@@ -9,8 +9,12 @@ interface SearchableSelectProps {
   placeholder?: string;
   options: any[];
   getOptionLabel: (item: any) => string;
+  /** If set, the typeahead matches this string (e.g. code + name) instead of only the visible label. */
+  getOptionSearchText?: (item: any) => string;
   getOptionValue: (item: any) => any;
   renderOption?: (item: any) => React.ReactNode;
+  /** When true, the option is shown but cannot be selected (e.g. invalid licence). */
+  isOptionDisabled?: (item: any) => boolean;
   onSelect?: (item: any | null) => void;
   required?: boolean;
   disabled?: boolean;
@@ -23,8 +27,10 @@ export default function SearchableSelect({
   placeholder = "Search...",
   options,
   getOptionLabel,
+  getOptionSearchText,
   getOptionValue,
   renderOption,
+  isOptionDisabled,
   onSelect,
   required,
   disabled,
@@ -39,8 +45,10 @@ export default function SearchableSelect({
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const q = search.trim().toLowerCase();
+  const textForFilter = getOptionSearchText ?? getOptionLabel;
   const filtered = options.filter((item) =>
-    getOptionLabel(item).toLowerCase().includes(search.toLowerCase()),
+    q === "" ? true : textForFilter(item).toLowerCase().includes(q),
   );
 
   const selectedLabel = fieldValue ? getOptionLabel(fieldValue) : "";
@@ -56,6 +64,7 @@ export default function SearchableSelect({
   }, []);
 
   const handleSelect = (item: any) => {
+    if (isOptionDisabled?.(item)) return;
     helpers.setValue(item);
     helpers.setTouched(true);
     setSearch("");
@@ -122,12 +131,15 @@ export default function SearchableSelect({
             filtered.map((item) => {
               const val = getOptionValue(item);
               const isSelected = fieldValue && getOptionValue(fieldValue) === val;
+              const optionDisabled = !!isOptionDisabled?.(item);
               return (
                 <div
                   key={String(val)}
-                  onClick={() => handleSelect(item)}
-                  className={`px-3 py-2 text-sm cursor-pointer transition-colors
-                    ${isSelected ? "bg-primary/10 text-primary font-medium" : "hover:bg-gray-50"}
+                  onClick={() => !optionDisabled && handleSelect(item)}
+                  className={`px-3 py-2 text-sm transition-colors
+                    ${optionDisabled ? "opacity-55 cursor-not-allowed bg-gray-50 text-gray-500" : "cursor-pointer"}
+                    ${!optionDisabled && isSelected ? "bg-primary/10 text-primary font-medium" : ""}
+                    ${!optionDisabled && !isSelected ? "hover:bg-gray-50" : ""}
                   `}
                 >
                   {renderOption ? renderOption(item) : getOptionLabel(item)}

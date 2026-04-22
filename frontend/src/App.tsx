@@ -1,7 +1,8 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "@/config/query-client";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
@@ -38,8 +39,6 @@ import PrintInvoicePage from "./pages/admin-panel/firm-admin/invoices/print-invo
 import FirmRetailerOrdersPage from "./pages/admin-panel/firm-admin/retailer-orders/page";
 import StockManagerPage from "./pages/admin-panel/firm-admin/stock-manager/page";
 
-const queryClient = new QueryClient();
-
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <CookiesProvider>
@@ -60,7 +59,7 @@ const App = () => (
               <Route
                 path="/dashboard/:firmId/invoices/:id/print"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={["firm_admin", "admin"]}>
                     <PrintInvoicePage />
                   </ProtectedRoute>
                 }
@@ -164,7 +163,9 @@ const App = () => (
                 <Route
                   path=":firmId/retailer-orders"
                   element={
-                    <ProtectedRoute allowedRoles={["firm_admin", "admin"]}>
+                    <ProtectedRoute
+                      allowedRoles={["firm_admin", "admin", "sales_person"]}
+                    >
                       <FirmRetailerOrdersPage />
                     </ProtectedRoute>
                   }

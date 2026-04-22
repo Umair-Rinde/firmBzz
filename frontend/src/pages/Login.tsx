@@ -1,4 +1,4 @@
-import { useAuth, UserRole } from "@/context/AuthContext";
+import { useAuth, UserRole, mapBackendRoleToFrontend } from "@/context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -80,6 +80,11 @@ export default function Login() {
           return `/dashboard/${firmSlug}`;
         }
         return "/dashboard/distribution";
+      case "sales_person":
+        if (firmSlug) {
+          return `/dashboard/${firmSlug}/retailer-orders`;
+        }
+        return "/dashboard";
       default:
         return "/dashboard";
     }
@@ -121,18 +126,10 @@ export default function Login() {
       if (from) {
         navigate(from, { replace: true });
       } else {
-        const userRole =
-          userData.user_type === "ADMIN"
-            ? "admin"
-            : userData.firm?.role === "FIRM_ADMIN"
-              ? "firm_admin"
-              : userData.firm?.role === "SUPER_SELLER" ||
-                  userData.firm?.role === "SUPERSELLER_USER"
-                ? "super_retailer"
-                : userData.firm?.role === "DISTRIBUTOR" ||
-                    userData.firm?.role === "DISTRIBUTOR_USER"
-                  ? "distributor"
-                  : "firm_admin";
+        const userRole = mapBackendRoleToFrontend(
+          userData.user_type,
+          userData.firm?.role,
+        );
 
         getRoleBasedRoute(userRole, userData.firm?.slug).then((route) => {
           navigate(route, { replace: true });

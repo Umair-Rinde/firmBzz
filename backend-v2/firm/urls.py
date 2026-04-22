@@ -19,6 +19,10 @@ urlpatterns = [
 
     # Customer/Retailer Management
     path('<slug:slug>/customers/', routes.CustomerListCreateAPIView.as_view()),
+    path(
+        '<slug:slug>/customers/fssai-expiry-alerts/',
+        routes.CustomerFssaiExpiryAlertsAPIView.as_view(),
+    ),
     path('<slug:slug>/customers/<uuid:customer_id>/', routes.CustomerDetailAPIView.as_view()),
 
     # Salesman → retailer orders (bundled into invoice by firm admin)

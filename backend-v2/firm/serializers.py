@@ -1,3 +1,4 @@
+from datetime import timedelta
 from decimal import Decimal
 
 from rest_framework import serializers
@@ -26,7 +27,7 @@ from .choices import (
     StockLedgerEntryType,
     StockManualReason,
 )
-from .pricing import effective_unit_rate, allocate_batches_fefo
+from .pricing import effective_unit_rate, allocate_batches_fefo, line_total_inclusive
 
 class FirmSerializer(serializers.ModelSerializer):
     class Meta:
@@ -392,6 +393,22 @@ class RetailerOrderCreateSerializer(serializers.ModelSerializer):
         model = RetailerOrder
         fields = ["customer", "reference", "notes", "items"]
 
+    def validate(self, attrs):
+        from django.utils import timezone
+
+        customer = attrs.get("customer")
+        if customer is not None and customer.fssai_expiry is not None:
+            if customer.fssai_expiry < timezone.now():
+                raise ValidationError(
+                    {
+                        "customer": (
+                            "This retailer's FSSAI has expired. "
+                            "Update FSSAI in retailer configuration before creating an order."
+                        )
+                    }
+                )
+        return attrs
+
     def create(self, validated_data):
         from django.db import transaction
 
@@ -502,6 +519,7 @@ class InvoiceSerializer(serializers.ModelSerializer):
     amount_pending = serializers.SerializerMethodField()
     payment_status = serializers.SerializerMethodField()
     payments = serializers.SerializerMethodField()
+    auto_closes_at = serializers.SerializerMethodField()
 
     class Meta:
         model = Invoice
@@ -521,6 +539,8 @@ class InvoiceSerializer(serializers.ModelSerializer):
             "status",
             "status_display",
             "rejection_note",
+            "delivered_at",
+            "auto_closes_at",
             "created_by",
             "created_by_name",
             "approved_by",
@@ -544,6 +564,8 @@ class InvoiceSerializer(serializers.ModelSerializer):
             "approved_by",
             "status",
             "rejection_note",
+            "delivered_at",
+            "auto_closes_at",
             "is_printed",
             "printed_on",
             "printed_by",
@@ -551,6 +573,11 @@ class InvoiceSerializer(serializers.ModelSerializer):
 
     def get_source_retailer_order_ids(self, obj):
         return [str(x.id) for x in obj.source_orders.all()]
+
+    def get_auto_closes_at(self, obj):
+        if not obj.delivered_at or obj.status in ("CLOSED", "CANCELLED", "REJECTED"):
+            return None
+        return (obj.delivered_at + timedelta(days=2)).isoformat()
 
     def _paid(self, obj):
         if not hasattr(obj, "_cached_paid"):
@@ -701,7 +728,7 @@ class InvoiceFromRetailerOrdersSerializer(serializers.Serializer):
                     base_amt = Decimal(take) * ln["rate"]
                     if disc > 0:
                         base_amt = base_amt * (Decimal("100") - disc) / Decimal("100")
-                    line_amt = base_amt.quantize(Decimal("0.01"))
+                    line_amt = line_total_inclusive(base_amt, ln["gst_percent"])
                     total += line_amt
                     inv_item = InvoiceItem.objects.create(
                         invoice=invoice,

@@ -20,8 +20,14 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
     }
 
     if (allowedRoles && user && !allowedRoles.includes(user.role)) {
-        // Role not authorized, redirect to dashboard home or unauthorized page
-        // For now, sending to home, but could be a 403 page
+        if (user.role === "sales_person" && user.firm_slug) {
+            return (
+                <Navigate
+                    to={`/dashboard/${user.firm_slug}/retailer-orders`}
+                    replace
+                />
+            );
+        }
         return <Navigate to="/dashboard" replace />;
     }
 
