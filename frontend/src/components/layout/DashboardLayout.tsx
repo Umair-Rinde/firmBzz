@@ -17,6 +17,7 @@ import {
   CloudCog,
   ClipboardList,
   Warehouse,
+  ShieldAlert,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -140,6 +141,13 @@ export default function DashboardLayout() {
       title: "Retailer orders",
       icon: ClipboardList,
       href: `/dashboard/${activeFirm}/retailer-orders`,
+      roles: ["firm_admin", "sales_person"],
+      requiresFirm: true,
+    },
+    {
+      title: "FSSAI alerts",
+      icon: ShieldAlert,
+      href: `/dashboard/${activeFirm}/fssai-alerts`,
       roles: ["firm_admin", "sales_person"],
       requiresFirm: true,
     },

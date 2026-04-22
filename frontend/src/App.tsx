@@ -37,6 +37,7 @@ import InvoiceCreatePage from "./pages/admin-panel/firm-admin/invoices/create-in
 import InvoiceEditPage from "./pages/admin-panel/firm-admin/invoices/edit-invoice";
 import PrintInvoicePage from "./pages/admin-panel/firm-admin/invoices/print-invoice";
 import FirmRetailerOrdersPage from "./pages/admin-panel/firm-admin/retailer-orders/page";
+import FirmFssaiAlertsPage from "./pages/admin-panel/firm-admin/fssai-alerts/page";
 import StockManagerPage from "./pages/admin-panel/firm-admin/stock-manager/page";
 
 const App = () => (
@@ -167,6 +168,16 @@ const App = () => (
                       allowedRoles={["firm_admin", "admin", "sales_person"]}
                     >
                       <FirmRetailerOrdersPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path=":firmId/fssai-alerts"
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={["firm_admin", "admin", "sales_person"]}
+                    >
+                      <FirmFssaiAlertsPage />
                     </ProtectedRoute>
                   }
                 />

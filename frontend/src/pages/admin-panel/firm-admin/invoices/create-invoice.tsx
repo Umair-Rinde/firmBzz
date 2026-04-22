@@ -25,20 +25,43 @@ export interface InvoiceLine {
 }
 
 /**
- * Line discount for new invoice rows: product catalog (vendor list) first,
- * then retailer default. Ignores catalog when no_discount is set on the product.
+ * Line discount for new invoice rows: retailer default first (same as retailer
+ * orders / backend when line discount is not set), then catalog product_discount
+ * when the retailer default is 0. Ignores discounts when no_discount is set.
  */
 export function defaultInvoiceLineDiscountPercent(
   product: any,
   retailerDefaultDiscount: number,
 ): number {
   if (!product || product.no_discount) return 0;
+  const r = Number(retailerDefaultDiscount ?? 0);
+  if (Number.isFinite(r) && r > 0) {
+    return Math.min(100, Math.max(0, r));
+  }
   const catalog = Number(product.product_discount ?? 0);
   if (Number.isFinite(catalog) && catalog > 0) {
     return Math.min(100, Math.max(0, catalog));
   }
-  const r = Number(retailerDefaultDiscount ?? 0);
   return Number.isFinite(r) ? Math.min(100, Math.max(0, r)) : 0;
+}
+
+/** Reads `default_discount_percent` from a customer row (API may send string decimals). */
+function parseCustomerDefaultDiscountPercent(
+  customer: any | null | undefined,
+): number {
+  if (!customer) return 0;
+  const n = Number(customer.default_discount_percent ?? 0);
+  return Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 0;
+}
+
+/** Merged invoice rows from orders: if the order line has no discount, use retailer default only. */
+function mergedInvoiceLineDiscountPercent(
+  product: any,
+  retailerDefaultDiscount: number,
+): number {
+  if (!product || product.no_discount === true) return 0;
+  const n = Number(retailerDefaultDiscount ?? 0);
+  return Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 0;
 }
 
 function mergeOrderLines(
@@ -61,7 +84,7 @@ function mergeOrderLines(
           ? 0
           : orderDisc > 0
             ? Math.min(100, orderDisc)
-            : defaultInvoiceLineDiscountPercent(
+            : mergedInvoiceLineDiscountPercent(
                 product || {},
                 retailerDefaultDiscount,
               );
@@ -469,6 +492,14 @@ function InvoiceFormInner({
 }) {
   const { values } = useFormikContext<{ customer: any }>();
 
+  /** Prefer list row so `default_discount_percent` is always present (Formik value can be partial). */
+  const retailerDefaultDiscount = useMemo(() => {
+    const id = values.customer?.id as string | undefined;
+    if (!id) return 0;
+    const row = customers.find((c: any) => c.id === id);
+    return parseCustomerDefaultDiscountPercent(row ?? values.customer);
+  }, [customers, values.customer]);
+
   const submittedForCustomer = useMemo(() => {
     if (!values.customer) return [];
     return allOrders.filter(
@@ -522,19 +553,14 @@ function InvoiceFormInner({
       })),
     }));
     setSelectedOrderIds(next);
-    setLines(
-      mergeOrderLines(
-        enriched,
-        Number(values.customer?.default_discount_percent ?? 0),
-      ),
-    );
+    setLines(mergeOrderLines(enriched, retailerDefaultDiscount));
     prefillAppliedRef.current = true;
   }, [
     allOrders,
     prefillOrderIds,
     products,
     values.customer?.id,
-    values.customer?.default_discount_percent,
+    retailerDefaultDiscount,
     setLines,
     setSelectedOrderIds,
   ]);
@@ -560,12 +586,7 @@ function InvoiceFormInner({
             product_obj: productMap.get(item.product) || null,
           })),
         }));
-        setLines(
-          mergeOrderLines(
-            enriched,
-            Number(values.customer?.default_discount_percent ?? 0),
-          ),
-        );
+        setLines(mergeOrderLines(enriched, retailerDefaultDiscount));
         return next;
       });
     },
@@ -574,7 +595,7 @@ function InvoiceFormInner({
       productMap,
       setSelectedOrderIds,
       setLines,
-      values.customer?.default_discount_percent,
+      retailerDefaultDiscount,
       values.customer?.id,
     ],
   );
@@ -629,9 +650,7 @@ function InvoiceFormInner({
             lines={lines}
             setLines={setLines}
             products={products}
-            retailerDefaultDiscount={Number(
-              values.customer?.default_discount_percent ?? 0,
-            )}
+            retailerDefaultDiscount={retailerDefaultDiscount}
           />
         </div>
       )}

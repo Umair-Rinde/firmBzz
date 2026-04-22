@@ -2,6 +2,7 @@ import AppBar from "@/components/ui/custom/app-bar";
 import CustomButton from "@/components/ui/custom/custom-button";
 import CustomInput from "@/components/ui/custom/custom-input";
 import CustomSelect from "@/components/ui/custom/custom-select";
+import SearchableSelect from "@/components/ui/custom/searchable-select";
 import { Datagrid, FilterConfig } from "@/components/ui/custom/datgrid";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -211,25 +212,23 @@ export default function StockManagerPage() {
               return (
                 <Form className="space-y-4">
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    <div>
-                      <Label className="mb-2 block">Product</Label>
-                      <CustomSelect
-                        label=""
+                    <div className="min-w-0">
+                      <SearchableSelect
+                        name="product"
+                        label="Product"
+                        placeholder="Search by code or name…"
                         className="w-full min-w-[220px]"
                         options={products}
                         getOptionLabel={(o: any) =>
                           `${o.product_code ? `[${o.product_code}] ` : ""}${o.name}`
                         }
+                        getOptionSearchText={(o: any) =>
+                          [o.product_code, o.name].filter(Boolean).join(" ")
+                        }
                         getOptionValue={(o: any) => o.id}
-                        value={values.product}
-                        onChange={(p: any) => {
-                          setFieldValue("product", p);
-                          setFieldValue("product_batch", null);
-                        }}
+                        required
+                        onSelect={() => setFieldValue("product_batch", null)}
                       />
-                      {touched.product && errors.product && (
-                        <p className="text-xs text-red-600 mt-1">{String(errors.product)}</p>
-                      )}
                     </div>
 
                     <div>

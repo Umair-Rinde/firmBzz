@@ -41,14 +41,12 @@ const VALID_STATUS_TRANSITIONS: Record<string, { value: string; label: string; s
     { value: "DELIVERED", label: "Mark Delivered", style: "bg-indigo-600 hover:bg-indigo-700 text-white" },
     { value: "CANCELLED", label: "Cancel", style: "bg-red-50 text-red-600 hover:bg-red-100 border-red-200" },
   ],
+  /** After delivery: close (or cancel) only — payment is tracked via Payments, not invoice status. */
   DELIVERED: [
-    { value: "PARTIALLY_PAID", label: "Partially Paid", style: "bg-amber-600 hover:bg-amber-700 text-white" },
-    { value: "PAID", label: "Mark Paid", style: "bg-emerald-600 hover:bg-emerald-700 text-white" },
     { value: "CLOSED", label: "Close", style: "bg-gray-600 hover:bg-gray-700 text-white" },
     { value: "CANCELLED", label: "Cancel", style: "bg-red-50 text-red-600 hover:bg-red-100 border-red-200" },
   ],
   PARTIALLY_PAID: [
-    { value: "PAID", label: "Mark Paid", style: "bg-emerald-600 hover:bg-emerald-700 text-white" },
     { value: "CLOSED", label: "Close", style: "bg-gray-600 hover:bg-gray-700 text-white" },
     { value: "CANCELLED", label: "Cancel", style: "bg-red-50 text-red-600 hover:bg-red-100 border-red-200" },
   ],
