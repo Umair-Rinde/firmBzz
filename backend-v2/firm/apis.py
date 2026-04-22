@@ -63,6 +63,24 @@ def _get_pg_limit_q(params):
     return pg, limit, q
 
 
+def _drf_validation_detail_message(exc: DRFValidationError) -> str:
+    """Turn DRF ValidationError.detail (list/dict/str) into one message for BaseResponse."""
+    detail = getattr(exc, "detail", None)
+    if detail is None:
+        return "Request failed validation."
+    if isinstance(detail, list):
+        return str(detail[0]) if detail else "Request failed validation."
+    if isinstance(detail, dict):
+        parts = []
+        for val in detail.values():
+            if isinstance(val, list):
+                parts.extend(str(x) for x in val)
+            else:
+                parts.append(str(val))
+        return "; ".join(parts) if parts else str(detail)
+    return str(detail)
+
+
 def _build_search_filter(model, q, extra_fields=None, ignore_fields=None):
     if not q:
         return Q()
@@ -1122,23 +1140,36 @@ class CustomerService:
             return BaseResponse(success=False, message="Customer not found", status=404)
 
     @staticmethod
-    def list_fssai_expiry_alerts(firm_slug):
+    def list_fssai_expiry_alerts(firm_slug, params=None):
         """Retailers with FSSAI expired or expiring within the next 7 days (requires fssai_expiry set)."""
         from datetime import timedelta
 
         try:
             now = timezone.now()
             cutoff = now + timedelta(days=7)
-            qs = (
-                Customer.objects.filter(
-                    firm__slug=firm_slug,
-                    fssai_expiry__isnull=False,
-                    fssai_expiry__lte=cutoff,
-                )
-                .order_by("fssai_expiry")
+            qs = Customer.objects.filter(
+                firm__slug=firm_slug,
+                fssai_expiry__isnull=False,
+                fssai_expiry__lte=cutoff,
             )
-            serializer = CustomerSerializer(qs, many=True)
-            data = {"rows": serializer.data, "count": qs.count()}
+            params = params or {}
+            window = (params.get("window") or "").strip().lower()
+            if window == "expired":
+                qs = qs.filter(fssai_expiry__lt=now)
+            elif window == "expiring":
+                qs = qs.filter(fssai_expiry__gte=now, fssai_expiry__lte=cutoff)
+
+            qs = qs.order_by("fssai_expiry")
+            page_qs, count = _apply_datagrid(
+                queryset=qs,
+                model=Customer,
+                params=params,
+                extra_search_fields=["reference_code"],
+                ignore_fields=["id", "firm", "fssai_document"],
+                filter_fields=None,
+            )
+            serializer = CustomerSerializer(page_qs, many=True)
+            data = {"rows": serializer.data, "count": count}
             return BaseResponse(data=data, status=200)
         except Exception as e:
             return BaseResponse(success=False, message=str(e), status=500)
@@ -1355,13 +1386,20 @@ class InvoiceService:
             context={"firm": firm, "request_user": user},
         )
         if serializer.is_valid():
-            with transaction.atomic():
-                invoice = serializer.save()
-                response_serializer = InvoiceSerializer(invoice)
+            try:
+                with transaction.atomic():
+                    invoice = serializer.save()
+                    response_serializer = InvoiceSerializer(invoice)
+                    return BaseResponse(
+                        message="Invoice created from retailer orders",
+                        data=response_serializer.data,
+                        status=201,
+                    )
+            except DRFValidationError as ex:
                 return BaseResponse(
-                    message="Invoice created from retailer orders",
-                    data=response_serializer.data,
-                    status=201,
+                    success=False,
+                    message=_drf_validation_detail_message(ex),
+                    status=400,
                 )
         return BaseResponse(
             success=False,
@@ -1451,12 +1489,11 @@ class InvoiceService:
                     "Invoice revision",
                 )
         except DRFValidationError as ex:
-            detail = ex.detail
-            if isinstance(detail, list) and detail:
-                msg = str(detail[0])
-            else:
-                msg = str(detail)
-            return BaseResponse(success=False, message=msg, status=400)
+            return BaseResponse(
+                success=False,
+                message=_drf_validation_detail_message(ex),
+                status=400,
+            )
 
         invoice = (
             Invoice.objects.select_related("customer", "created_by", "approved_by")
@@ -1564,8 +1601,9 @@ class InvoiceService:
     VALID_STATUS_TRANSITIONS = {
         "APPROVED": ["OUT_FOR_DELIVERY", "CANCELLED"],
         "OUT_FOR_DELIVERY": ["DELIVERED", "CANCELLED"],
-        "DELIVERED": ["PARTIALLY_PAID", "PAID", "CLOSED", "CANCELLED"],
-        "PARTIALLY_PAID": ["PAID", "CLOSED", "CANCELLED"],
+        # Post-delivery: close or cancel only; partial/full payment uses Payment rows + payment_status.
+        "DELIVERED": ["CLOSED", "CANCELLED"],
+        "PARTIALLY_PAID": ["CLOSED", "CANCELLED"],
         "PAID": ["CLOSED"],
         "CHANGES_REQUESTED": ["PENDING_APPROVAL", "CANCELLED"],
         "PENDING_APPROVAL": ["CANCELLED"],
@@ -2197,12 +2235,11 @@ class StockService:
                     try:
                         allocations = allocate_batches_fefo(product, qty)
                     except DRFValidationError as ex:
-                        detail = ex.detail
-                        if isinstance(detail, list):
-                            msg = str(detail[0])
-                        else:
-                            msg = str(detail)
-                        return BaseResponse(success=False, message=msg, status=400)
+                        return BaseResponse(
+                            success=False,
+                            message=_drf_validation_detail_message(ex),
+                            status=400,
+                        )
 
                 for batch, take in allocations:
                     batch.quantity -= take

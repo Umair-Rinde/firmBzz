@@ -367,7 +367,7 @@ class CustomerFssaiExpiryAlertsAPIView(APIView):
         denied = _enforce_firm_context(request, slug)
         if denied:
             return denied
-        return apis.CustomerService.list_fssai_expiry_alerts(slug)
+        return apis.CustomerService.list_fssai_expiry_alerts(slug, params=request.GET)
 
 
 class CustomerListCreateAPIView(APIView):
@@ -654,12 +654,12 @@ class InvoiceStatusUpdateAPIView(APIView):
     @extend_schema(
         summary="Update Invoice Status",
         description=(
-            "Transition an invoice through the lifecycle: "
-            "APPROVED → OUT_FOR_DELIVERY → DELIVERED → PARTIALLY_PAID → PAID → CLOSED. "
-            "CANCELLED is allowed from most states. "
-            "Delivered invoices record delivered_at; after 2 days in DELIVERED / PARTIALLY_PAID / PAID "
-            "they are auto-closed (also when listing or viewing an invoice, and via "
-            "`manage.py auto_close_delivered_invoices`)."
+            "Transition an invoice through the lifecycle: APPROVED → OUT_FOR_DELIVERY → DELIVERED → CLOSED. "
+            "After DELIVERED, only CLOSED or CANCELLED are allowed as status changes; record payments via "
+            "the invoice payments API (payment_status on the invoice reflects that). "
+            "Legacy invoices in PARTIALLY_PAID or PAID may still transition to CLOSED/CANCELLED. "
+            "Delivered invoices set delivered_at; after 2 days in DELIVERED / PARTIALLY_PAID / PAID they "
+            "are auto-closed when listing or viewing, and via `manage.py auto_close_delivered_invoices`."
         ),
         tags=["Invoices"],
     )

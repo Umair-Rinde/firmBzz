@@ -111,10 +111,22 @@ class Product(BaseModel):
         return self.name
 
 
+class CustomerManager(models.Manager):
+    """Ensures legacy DBs have default_discount_percent before any Customer query."""
+
+    def get_queryset(self):
+        from .db_utils import ensure_firm_customer_default_discount_percent_column
+
+        ensure_firm_customer_default_discount_percent_column()
+        return super().get_queryset()
+
+
 class Customer(BaseModel):
     """Customer/Retailer - Super Seller or Distributor"""
     from .choices import CustomerTypeChoices
-    
+
+    objects = CustomerManager()
+
     firm = models.ForeignKey(Firm, on_delete=models.CASCADE, related_name='customers')
     slug = models.SlugField(unique=True, blank=True)
     customer_type = models.CharField(
