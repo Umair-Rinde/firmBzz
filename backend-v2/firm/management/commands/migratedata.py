@@ -20,7 +20,8 @@ from uuid import uuid4
 
 from django.conf import settings
 from django.core.management.base import BaseCommand
-from django.db import transaction
+from django.db import transaction, connection
+from django.db.utils import OperationalError
 from django.utils.text import slugify
 
 from django.db.models import Sum
@@ -186,6 +187,10 @@ def _product_fields_from_row(row: dict) -> dict:
 def import_products(firm: Firm, rows: list[dict], stdout) -> int:
     created = 0
     skipped = 0
+    existing_names = {
+        (n or "").strip().lower()
+        for n in Product.objects.filter(firm=firm).values_list("name", flat=True)
+    }
     for i, row in enumerate(rows):
         name_raw = _row_get(row, "itemname", "item name", "name", "product name", "item_name")
         name = str(name_raw).strip() if name_raw else ""
@@ -194,7 +199,8 @@ def import_products(firm: Firm, rows: list[dict], stdout) -> int:
             skipped += 1
             continue
 
-        if Product.objects.filter(firm=firm, name__iexact=name).exists():
+        key = name.strip().lower()
+        if key in existing_names:
             stdout.write(f"  [products] Row {i+2}: '{name}' already exists, skipping")
             skipped += 1
             continue
@@ -205,6 +211,7 @@ def import_products(firm: Firm, rows: list[dict], stdout) -> int:
             name=name,
             **pf,
         )
+        existing_names.add(key)
         created += 1
 
     stdout.write(f"  [products] {created} created, {skipped} skipped for {firm.name}")
@@ -261,6 +268,10 @@ def _excel_date_to_date(val):
 def import_customers(firm: Firm, rows: list[dict], stdout) -> int:
     created = 0
     skipped = 0
+    existing_names = {
+        (n or "").strip().lower()
+        for n in Customer.objects.filter(firm=firm).values_list("business_name", flat=True)
+    }
     for i, row in enumerate(rows):
         biz_name = _clean_str(
             _row_get(row, "name", "business_name", "business name", "businessname", "shop name", "shopname", "shop_name")
@@ -269,7 +280,8 @@ def import_customers(firm: Firm, rows: list[dict], stdout) -> int:
             skipped += 1
             continue
 
-        if Customer.objects.filter(firm=firm, business_name__iexact=biz_name).exists():
+        biz_key = biz_name.strip().lower()
+        if biz_key in existing_names:
             skipped += 1
             continue
 
@@ -280,10 +292,10 @@ def import_customers(firm: Firm, rows: list[dict], stdout) -> int:
         area = _clean_str(_row_get(row, "area"))
 
         gst_raw = _clean_str(_row_get(row, "gstin", "gst_number", "gst number", "gst"))
-        gst = gst_raw if gst_raw and gst_raw != "0" else None
+        gst = (gst_raw[:50] if gst_raw and gst_raw != "0" else None)
 
         fssai_raw = _clean_str(_row_get(row, "fssai", "fssai_number", "fssai number"))
-        fssai = fssai_raw if fssai_raw and fssai_raw != "0" else None
+        fssai = (fssai_raw[:50] if fssai_raw and fssai_raw != "0" else None)
 
         fssai_expiry = _excel_date_to_date(_row_get(row, "exp date", "expdate", "fssai_expiry", "expiry"))
 
@@ -299,7 +311,7 @@ def import_customers(firm: Firm, rows: list[dict], stdout) -> int:
         if ctype_raw in ("SUPER_SELLER", "SUPERSELLER", "SS"):
             customer_type = "SUPER_SELLER"
 
-        cust_slug = slugify(f"{biz_name}-{firm.code}-{uuid4().hex[:6]}")
+        cust_slug = slugify(f"{biz_name}-{firm.code}-{uuid4().hex[:6]}")[:50]
 
         default_disc = _dec(
             _row_get(
@@ -311,7 +323,7 @@ def import_customers(firm: Firm, rows: list[dict], stdout) -> int:
             )
         )
 
-        Customer.objects.create(
+        payload = dict(
             firm=firm,
             slug=cust_slug,
             customer_type=customer_type,
@@ -328,6 +340,16 @@ def import_customers(firm: Firm, rows: list[dict], stdout) -> int:
             default_discount_percent=default_disc,
             is_active=True,
         )
+        try:
+            Customer.objects.create(**payload)
+        except OperationalError:
+            # Resiliency for flaky remote DB connections: force reconnect and retry once.
+            try:
+                connection.close()
+            except Exception:
+                pass
+            Customer.objects.create(**payload)
+        existing_names.add(biz_key)
         created += 1
 
     stdout.write(f"  [customers] {created} created, {skipped} skipped for {firm.name}")
@@ -590,15 +612,13 @@ class Command(BaseCommand):
 
             for pf in firm_product_files:
                 self.stdout.write(f"  Reading products from {pf.name} ...")
-                with transaction.atomic():
-                    rows = _read_excel(str(pf))
-                    import_products(firm, rows, self.stdout)
+                rows = _read_excel(str(pf))
+                import_products(firm, rows, self.stdout)
 
             for cf in firm_customer_files:
                 self.stdout.write(f"  Reading customers from {cf.name} ...")
-                with transaction.atomic():
-                    rows = _read_excel(str(cf))
-                    import_customers(firm, rows, self.stdout)
+                rows = _read_excel(str(cf))
+                import_customers(firm, rows, self.stdout)
 
     def _refresh_products_from_files(self, firms: list[Firm]):
         if not MIGRATION_DIR.exists():

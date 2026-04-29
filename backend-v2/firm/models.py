@@ -115,8 +115,10 @@ class Product(BaseModel):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            # SlugField default max_length is 50; include UUID suffix for uniqueness.
-            self.slug = slugify(f"{self.name}-{self.firm_id}-{uuid4().hex[:8]}")[:50]
+            # SlugField default max_length is 50; preserve a UUID suffix for uniqueness.
+            suffix = uuid4().hex[:8]
+            base = slugify(self.name)[: (50 - 1 - len(suffix))]  # keep room for "-{suffix}"
+            self.slug = f"{base}-{suffix}"[:50]
         super().save(*args, **kwargs)
 
     def __str__(self):
