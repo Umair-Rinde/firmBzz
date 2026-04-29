@@ -13,6 +13,16 @@ class Firm(BaseModel):
     slug = models.SlugField(unique=True, blank=True)
     is_active = models.BooleanField(default=True)
 
+    # Invoice / compliance details (optional but printed on invoices)
+    legal_name = models.CharField(max_length=255, blank=True, null=True)
+    address = models.TextField(blank=True, null=True)
+    gstin = models.CharField(max_length=20, blank=True, null=True)
+    fssai_number = models.CharField(max_length=50, blank=True, null=True)
+    email = models.EmailField(blank=True, null=True)
+    phone = models.CharField(max_length=20, blank=True, null=True)
+    state = models.CharField(max_length=100, blank=True, null=True)
+    state_code = models.CharField(max_length=10, blank=True, null=True)
+
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = slugify(f"{self.name}-{self.code}")

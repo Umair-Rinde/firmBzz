@@ -206,6 +206,32 @@ class FirmService:
             )
 
     @staticmethod
+    def update_firm(slug, data):
+        try:
+            firm = Firm.objects.get(slug=slug)
+        except Firm.DoesNotExist:
+            return BaseResponse(
+                success=False,
+                message="Firm not found",
+                status=404,
+            )
+
+        serializer = FirmSerializer(firm, data=data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return BaseResponse(
+                message="Firm updated successfully",
+                data=serializer.data,
+                status=200,
+            )
+        return BaseResponse(
+            success=False,
+            message="Invalid data",
+            errors=serializer.errors,
+            status=400,
+        )
+
+    @staticmethod
     def list_firms(user=None, params=None):
         # Admins can see all firms; others only see firms they belong to
         if user and getattr(user, "user_type", None) != "ADMIN":

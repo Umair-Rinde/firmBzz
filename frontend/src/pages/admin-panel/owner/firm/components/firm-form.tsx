@@ -31,7 +31,7 @@ const FirmDrawer = ({
   const { mutate, isPending } = useMutation({
     mutationFn: (data: any) =>
       row
-        ? axios.put(`/firm/${row?.slug}/update/`, data)
+        ? axios.put(`/firm/${row?.slug}/`, data)
         : axios.post("/firm/setup/", data),
     onSuccess(data) {
       toast.success(data?.data?.data?.message || "Successful");
@@ -46,10 +46,16 @@ const FirmDrawer = ({
   //-------- initial values ---------//
   const initialValues = {
     name: row?.name || "",
+    legal_name: row?.legal_name || "",
     slug: row?.slug || "",
     address: row?.address || "",
     code: row?.code || "",
     phone: row?.phone || "",
+    email: row?.email || "",
+    gstin: row?.gstin || "",
+    fssai_number: row?.fssai_number || "",
+    state: row?.state || "",
+    state_code: row?.state_code || "",
   };
 
   return (
@@ -73,14 +79,20 @@ const FirmDrawer = ({
               <Form>
                 <div className=" gap-6 py-20 grid grid-cols-1  px-[20px] ">
                   <CustomInput name="name" label="Name" className="w-full" />
+                  <CustomInput name="legal_name" label="Legal Name (for invoice)" />
                   <CustomInput name="slug" label="Slug" />
                   <CustomInput name="address" label="Address" />
                   <CustomInput name="code" label="Code" />
                   <CustomInput
                     name="phone"
-                    type="number"
+                    type="text"
                     label="Phone number"
                   />
+                  <CustomInput name="email" type="email" label="Email" />
+                  <CustomInput name="gstin" label="GSTIN" />
+                  <CustomInput name="fssai_number" label="FSSAI Number" />
+                  <CustomInput name="state" label="State" />
+                  <CustomInput name="state_code" label="State Code" />
                 </div>
 
                 <div className=" mx-[28px] bg-white  w-full  flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">

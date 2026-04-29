@@ -64,6 +64,17 @@ class FirmDetailAPIView(APIView):
             return denied
         return apis.FirmService.get_firm(slug)
 
+    @extend_schema(
+        summary="Update Firm Details",
+        description="Update firm details (address, GSTIN, contact info) used on invoices.",
+        tags=["Firm"],
+    )
+    def put(self, request, slug):
+        denied = _enforce_firm_context(request, slug)
+        if denied:
+            return denied
+        return apis.FirmService.update_firm(slug, request.data)
+
 
 class ProductListCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]

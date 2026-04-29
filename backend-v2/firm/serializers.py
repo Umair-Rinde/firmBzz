@@ -32,7 +32,22 @@ from .pricing import effective_unit_rate, allocate_batches_fefo, line_total_incl
 class FirmSerializer(serializers.ModelSerializer):
     class Meta:
         model = Firm
-        fields = ["id", "name", "code", "slug", "is_active", "created_on"]
+        fields = [
+            "id",
+            "name",
+            "legal_name",
+            "code",
+            "slug",
+            "is_active",
+            "address",
+            "gstin",
+            "fssai_number",
+            "email",
+            "phone",
+            "state",
+            "state_code",
+            "created_on",
+        ]
         read_only_fields = ["slug", "created_on"]
 
 class ProductSerializer(serializers.ModelSerializer):
