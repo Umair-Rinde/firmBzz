@@ -25,7 +25,8 @@ class Firm(BaseModel):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = slugify(f"{self.name}-{self.code}")
+            # SlugField default max_length is 50; clamp to avoid DB truncation errors.
+            self.slug = slugify(f"{self.name}-{self.code}")[:50]
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -114,7 +115,8 @@ class Product(BaseModel):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = slugify(f"{self.name}-{self.firm_id}-{uuid4().hex[:8]}")
+            # SlugField default max_length is 50; include UUID suffix for uniqueness.
+            self.slug = slugify(f"{self.name}-{self.firm_id}-{uuid4().hex[:8]}")[:50]
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -175,7 +177,8 @@ class Customer(BaseModel):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = slugify(self.business_name)
+            # SlugField default max_length is 50; clamp to avoid DB truncation errors.
+            self.slug = slugify(self.business_name)[:50]
         super().save(*args, **kwargs)
 
     def __str__(self):

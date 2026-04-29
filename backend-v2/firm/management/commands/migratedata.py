@@ -30,9 +30,9 @@ from firm.choices import StockLedgerEntryType, StockManualReason
 from firm.models import Firm, Product, Customer, ProductBatch, StockLedgerEntry
 
 
-OWNER_EMAIL = "rindeumair@gmail.com"
-OWNER_PASSWORD = "Admin@1234"
-OWNER_FULL_NAME = "Umair Rinde"
+OWNER_EMAIL = "admin@mail.com"
+OWNER_PASSWORD = "Admin@123"
+OWNER_FULL_NAME = "Super Admin"
 OWNER_PHONE = "9000000000"
 
 FIRMS = [
@@ -138,14 +138,26 @@ def _read_excel(filepath: str) -> list[dict]:
 
 def _product_fields_from_row(row: dict) -> dict:
     """Map one Excel row to Product field values (shared by create + refresh)."""
+    def _max(s: str | None, n: int) -> str | None:
+        if not s:
+            return None
+        s2 = str(s).strip()
+        return s2[:n] if len(s2) > n else s2
+
     return {
-        "product_code": str(
+        "product_code": _max(
+            str(
             _row_get(row, "product_code", "productcode", "code", "item code", "itemcode", "sr no") or ""
-        ).strip()
-        or None,
-        "description": str(_row_get(row, "description") or "").strip() or None,
-        "category": str(_row_get(row, "category") or "").strip() or None,
-        "hsn_code": str(_row_get(row, "hsnno", "hsn_no", "hsn_code", "hsn code", "hsn") or "").strip() or None,
+            ).strip()
+            or None,
+            64,
+        ),
+        "description": (str(_row_get(row, "description") or "").strip() or None),
+        "category": _max((str(_row_get(row, "category") or "").strip() or None), 500),
+        "hsn_code": _max(
+            (str(_row_get(row, "hsnno", "hsn_no", "hsn_code", "hsn code", "hsn") or "").strip() or None),
+            50,
+        ),
         "gst_percent": _dec(_row_get(row, "gstper", "gst_percent", "gst %", "gst")),
         "liters": _dec(_row_get(row, "liters", "ltr")),
         "pack": _dec(_row_get(row, "pack")),
@@ -490,22 +502,27 @@ class Command(BaseCommand):
     # -- firm / user setup --
 
     def _ensure_owner(self) -> User:
-        user, created = User.objects.get_or_create(
-            email=OWNER_EMAIL,
-            defaults={
-                "full_name": OWNER_FULL_NAME,
-                "phone": OWNER_PHONE,
-                "user_type": "FIRM_ADMIN",
-                "is_admin": True,
-                "is_active": True,
-            },
-        )
-        if created:
-            user.set_password(OWNER_PASSWORD)
-            user.save()
-            self.stdout.write(self.style.SUCCESS(f"  Created owner user: {OWNER_EMAIL}"))
-        else:
-            self.stdout.write(f"  Owner user already exists: {OWNER_EMAIL}")
+        # Create a *global* admin user (ADMIN) as requested.
+        user = User.objects.filter(email=OWNER_EMAIL).first()
+        if user is None:
+            user = User.objects.create_superuser(
+                phone=OWNER_PHONE,
+                email=OWNER_EMAIL,
+                full_name=OWNER_FULL_NAME,
+                password=OWNER_PASSWORD,
+            )
+            self.stdout.write(self.style.SUCCESS(f"  Created admin user: {OWNER_EMAIL}"))
+            return user
+
+        # Ensure existing user is elevated to ADMIN and has the requested password.
+        user.is_admin = True
+        user.is_active = True
+        user.user_type = "ADMIN"
+        user.full_name = user.full_name or OWNER_FULL_NAME
+        user.phone = user.phone or OWNER_PHONE
+        user.set_password(OWNER_PASSWORD)
+        user.save()
+        self.stdout.write(f"  Admin user already exists; ensured ADMIN + reset password: {OWNER_EMAIL}")
         return user
 
     def _ensure_firms(self, owner: User) -> list[Firm]:

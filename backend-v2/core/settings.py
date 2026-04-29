@@ -92,16 +92,17 @@ ALLOWED_METHODS = ['*']
 # - Set DATABASE_URL to use Postgres, e.g.
 #   postgres://USER:PASSWORD@HOST:5432/DBNAME
 DATABASE_URL = env("DATABASE_URL", default="")
-if DATABASE_URL:
-    DATABASES = {"default": env.db("DATABASE_URL")}
-    DATABASES["default"]["CONN_MAX_AGE"] = env.int("DB_CONN_MAX_AGE", default=60)
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db2.sqlite3",
-        }
-    }
+# if DATABASE_URL:
+DATABASES = {"default": env.db("DATABASE_URL")}
+DATABASES["default"]["CONN_MAX_AGE"] = env.int("DB_CONN_MAX_AGE", default=60)
+# else:
+# else:
+#     DATABASES = {
+#         "default": {
+#             "ENGINE": "django.db.backends.sqlite3",
+#             "NAME": BASE_DIR / "db2.sqlite3",
+#         }
+#     }
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
