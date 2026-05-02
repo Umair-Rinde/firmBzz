@@ -1,16 +1,16 @@
 import CustomButton from "@/components/ui/custom/custom-button";
 import { Drawer } from "@/components/ui/custom/custom-drawer";
 import CustomInput from "@/components/ui/custom/custom-input";
+import AsyncSearchableSelect from "@/components/ui/custom/async-searchable-select";
 import SearchableSelect from "@/components/ui/custom/searchable-select";
 import { getApiErrorMessage } from "@/config/api-error";
 import { axios } from "@/config/axios";
 import { queryClient } from "@/config/query-client";
-import { useQuery } from "@/hooks/useQuerry";
 import { fetchAllFirmProducts } from "@/lib/fetch-all-firm-products";
 import { useMutation, useQuery as useTanQuery } from "@tanstack/react-query";
 import { FieldArray, Form, Formik, useFormikContext } from "formik";
 import { AlertTriangle, ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useFirmSlug } from "@/hooks/useFirmSlug";
 import {
   formatFssaiDate,
@@ -335,11 +335,24 @@ const RetailerOrderDrawer = ({
 }) => {
   const slug = useFirmSlug();
 
-  const { data: customersRaw } = useQuery<any>({
-    queryKey: [`/firm/${slug}/customers/`, { limit: 500 }],
-    select: (res: any) => res?.data?.data?.rows ?? [],
-    enabled: !!slug && open,
-  });
+  const loadCustomersPage = useCallback(
+    async (search: string, page: number, limit: number) => {
+      const res = await axios.get(`/firm/${slug}/customers/`, {
+        params: {
+          pg: page,
+          limit,
+          q: search || undefined,
+          is_active: true,
+        },
+      });
+      const body = res?.data?.data;
+      return {
+        rows: body?.rows ?? [],
+        count: Number(body?.count ?? 0),
+      };
+    },
+    [slug],
+  );
 
   const { data: productsRaw } = useTanQuery({
     queryKey: [`/firm/${slug}/products/`, { allPages: true }],
@@ -347,7 +360,6 @@ const RetailerOrderDrawer = ({
     enabled: !!slug && open,
   });
 
-  const customers = (customersRaw || []).filter((c: any) => c.is_active);
   // Show all active products; stock can be 0 (e.g. migrated catalog without batches).
   const products = [...(productsRaw || [])]
     .filter((p: any) => p.is_active)
@@ -439,11 +451,14 @@ const RetailerOrderDrawer = ({
           {() => (
             <Form className="flex flex-col flex-1 min-h-0">
               <div className="flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto overscroll-contain py-4 px-4 sm:px-5 pb-32 sm:pb-28">
-                <SearchableSelect
+                <AsyncSearchableSelect
                   name="customer"
+                  queryScope={slug ?? ""}
+                  enabled={!!slug && open}
+                  loadPage={loadCustomersPage}
                   label="Retailer (customer)"
                   placeholder="Search by name or code..."
-                  options={customers}
+                  pageSize={40}
                   getOptionLabel={(c: any) =>
                     `${c.reference_code ? `[${c.reference_code}] ` : ""}${c.business_name}`
                   }

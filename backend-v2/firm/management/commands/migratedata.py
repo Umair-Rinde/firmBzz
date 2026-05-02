@@ -10,10 +10,12 @@ Usage:
     python manage.py migratedata
     python manage.py migratedata --skip-firms   # only import XLS, skip firm/user creation
     python manage.py migratedata --refresh-products  # re-apply rates/MRP from XLS to existing rows (by item name)
+    python manage.py migratedata --skip-firms --refresh-customer-discounts  # set default_discount_percent from Dis %% etc.
     python manage.py migratedata --skip-firms --import-stock  # sync stock from *anmol corner.xls* / *anmol enterprise.xls*
 """
 
 import os
+import re
 from decimal import Decimal
 from pathlib import Path
 from uuid import uuid4
@@ -132,6 +134,59 @@ def _read_excel(filepath: str) -> list[dict]:
     if filepath.lower().endswith(".xls"):
         return _read_xls_rows(filepath)
     return _read_xlsx_rows(filepath)
+
+
+def _read_stock_excel(filepath: str) -> list[dict]:
+    """
+    Stock workbooks often start with vendor banner rows; headers are like
+    'Item Name' / 'Stock Quantity'. Generic _find_header_row would pick the
+    wrong row (e.g. Vendor Name / GST / Address).
+    """
+    if filepath.lower().endswith(".xls"):
+        import xlrd
+
+        wb = xlrd.open_workbook(filepath)
+        sh = wb.sheet_by_index(0)
+        raw = [[sh.cell_value(r, c) for c in range(sh.ncols)] for r in range(sh.nrows)]
+    else:
+        import openpyxl
+
+        wb = openpyxl.load_workbook(filepath, data_only=True)
+        sh = wb.active
+        raw = list(sh.iter_rows(values_only=True))
+
+    hdr_idx = None
+    for idx, row in enumerate(raw):
+        headers_low = [str(v).strip().lower() if v is not None else "" for v in row]
+        nonempty = [h for h in headers_low if h]
+        blob = " ".join(nonempty)
+        has_item = "item" in blob and "name" in blob
+        has_qty_col = (
+            "stock quantity" in blob
+            or ("stock" in blob and "quantity" in blob)
+            or blob.replace(" ", "").find("stockqty") >= 0
+        )
+        if has_item and has_qty_col:
+            hdr_idx = idx
+            break
+
+    if hdr_idx is None:
+        return _read_excel(filepath)
+
+    headers = [
+        str(raw[hdr_idx][c]).strip().lower() if c < len(raw[hdr_idx]) else ""
+        for c in range(len(raw[hdr_idx]))
+    ]
+    rows = []
+    for r in range(hdr_idx + 1, len(raw)):
+        vals = raw[r]
+        if vals is None:
+            continue
+        if not any(str(v).strip() for v in vals if v is not None):
+            continue
+        row_dict = dict(zip(headers, vals))
+        rows.append(row_dict)
+    return rows
 
 
 # -- importers --
@@ -265,6 +320,57 @@ def _excel_date_to_date(val):
         return None
 
 
+def _customer_discount_from_row(row: dict):
+    """Customer masters use headers like 'Dis %' → dict key 'dis %' after normalize."""
+    return _dec(
+        _row_get(
+            row,
+            "default_discount_percent",
+            "default_discount",
+            "retailer_discount",
+            "discount",
+            "dis %",
+            "disc %",
+            "dis%",
+            "disc%",
+        )
+    )
+
+
+def refresh_customer_discounts_from_rows(firm: Firm, rows: list[dict], stdout) -> tuple[int, int]:
+    """Set default_discount_percent from spreadsheet rows matched by business name."""
+    updated = 0
+    missing = 0
+    for row in rows:
+        biz_name = _clean_str(
+            _row_get(
+                row,
+                "name",
+                "business_name",
+                "business name",
+                "businessname",
+                "shop name",
+                "shopname",
+                "shop_name",
+            )
+        )
+        if not biz_name:
+            continue
+        new_disc = _customer_discount_from_row(row)
+        n = Customer.objects.filter(firm=firm, business_name__iexact=biz_name).update(
+            default_discount_percent=new_disc
+        )
+        if n:
+            updated += n
+        else:
+            missing += 1
+    stdout.write(
+        f"  [customer discounts] {updated} rows updated, "
+        f"{missing} spreadsheet rows had no DB customer for {firm.name}"
+    )
+    return updated, missing
+
+
 def import_customers(firm: Firm, rows: list[dict], stdout) -> int:
     created = 0
     skipped = 0
@@ -313,15 +419,7 @@ def import_customers(firm: Firm, rows: list[dict], stdout) -> int:
 
         cust_slug = slugify(f"{biz_name}-{firm.code}-{uuid4().hex[:6]}")[:50]
 
-        default_disc = _dec(
-            _row_get(
-                row,
-                "default_discount_percent",
-                "default_discount",
-                "retailer_discount",
-                "discount",
-            )
-        )
+        default_disc = _customer_discount_from_row(row)
 
         payload = dict(
             firm=firm,
@@ -370,7 +468,13 @@ def _workbook_looks_like_stock_sheet(rows: list[dict]) -> bool:
     if not rows:
         return False
     keys = {(str(k or "").strip().lower()) for k in rows[0].keys()}
-    return bool(keys & {"stock", "stockpcs", "stock pcs", "closing stock"})
+    if keys & {"stock", "stockpcs", "stock pcs", "closing stock", "stock quantity"}:
+        return True
+    return any(
+        ("stock" in k and "quantity" in k) or k.endswith(" stock") or k.startswith("stock ")
+        for k in keys
+        if k
+    )
 
 
 def _sync_product_stock_absolute(firm: Firm, product: Product, target_qty: int) -> str:
@@ -403,6 +507,87 @@ def _sync_product_stock_absolute(firm: Firm, product: Product, target_qty: int) 
     return "updated"
 
 
+def _strip_leading_erp_item_prefix(name: str) -> str | None:
+    """Sheets like '10693/Plain Pista ...' often omit the numeric prefix in product master."""
+    s = name.strip()
+    if "/" not in s[:24]:
+        return None
+    tail = s.split("/", 1)[1].strip()
+    return tail or None
+
+
+def _norm_stock_key(name: str) -> str:
+    """Lowercase + collapse whitespace for stable alias / placeholder keys."""
+    return re.sub(r"\s+", " ", (name or "").strip().lower())
+
+
+def _stock_import_name_aliases(firm_code: str) -> dict[str, str]:
+    """
+    Map normalized Excel item cell -> exact Product.name when ERP export text
+    differs from the catalog (spacing, price suffix, ml variant, etc.).
+    """
+    if firm_code != "ANMOLCNR":
+        return {}
+    nk = _norm_stock_key
+    return {
+        nk("10693/Plain Pista BP 5000ml 1PR570 C6-Creambell"): "Plain Pista BP 5000ml 1P R545",
+        nk("22175/Royal Rajwadi 40ml 24P R10C9N-Creambell"): "Royal Rajwadi Kulfi 50ml 24P R10 [newR9]",
+        nk("13070/Butter Crunch 70ml 18P R25C9-Creambell"): "Butter Crunch Choc 70ml 18P R25 (New R20)",
+        nk("14016/Cassatta Chops 150ml 10P R70C7-Creambell"): "Cassatta Chops 150ML 10P R50",
+        nk("35069/Vanilla Jumbo Pack 2000ml 1P R285C15-Creambell"): "Vanilla Jumbo Pack 2000ML 1P R200",
+        nk("26139/Star Bon Vanilla 15ml 60P R5C9-Creambell"): "Star Bon Vanilla 15ml 60P R4.5",
+        nk("13104/Choco Vanilla Choc 65ml 24P R20C9-Creambell"): "Choco Vanilla Choc 65ml 24P R20 (New R18)",
+        nk("22125/ Mawa Malai Kulfi 40ml 24PR10 C9-Creambell"): "Mawa Malai Kulfi 40ml 24P R9",
+        nk("22125/Mawa Malai Kulfi 40ml 24PR10 C9-Creambell"): "Mawa Malai Kulfi 40ml 24P R9",
+        nk("18350/Butter Scotch Cup 85ml 12PR20C6-Creambell"): "Butter Scotch Cup 85ML 16P R18",
+        nk("16325/D.Chocolate Cone 105ml20PR40C6-Creambell"): "Chocolate Cone 105ml 20P R35",
+    }
+
+
+def _anmol_cnr_stock_placeholder_norm_keys() -> frozenset[str]:
+    """Sheet rows with no existing catalog match: create a minimal Product using the sheet label."""
+    nk = _norm_stock_key
+    return frozenset(
+        {
+            nk("16338/Cookies & Cream Disc Cone 105ml 10PR50C9-Creambell"),
+            nk("16339/Nutty Chocolate Disccone 105ml 10PR60C9-Creambell"),
+            nk("18348/Belgian Cookie Cup 110ml8PR50C9-Creambell"),
+            nk("18367/Royal Dry Fruit Cup 110ml 8PR40C9-Creambell"),
+            nk("16326/Crunchy Butterscotch Cone 105ml20PR30C6-Creambell"),
+        }
+    )
+
+
+def _resolve_product_for_stock_import(firm: Firm, sheet_name: str) -> Product | None:
+    name = (sheet_name or "").strip()
+    if not name:
+        return None
+
+    qs = Product.objects.filter(firm=firm, name__iexact=name)
+    if qs.exists():
+        return qs.first()
+    alt = _strip_leading_erp_item_prefix(name)
+    if alt:
+        qs = Product.objects.filter(firm=firm, name__iexact=alt)
+        if qs.exists():
+            return qs.first()
+
+    db_name = _stock_import_name_aliases(firm.code).get(_norm_stock_key(name))
+    if db_name:
+        qs = Product.objects.filter(firm=firm, name__iexact=db_name)
+        if qs.exists():
+            return qs.first()
+
+    if firm.code == "ANMOLCNR" and _norm_stock_key(name) in _anmol_cnr_stock_placeholder_norm_keys():
+        nm = name[:255]
+        existing = Product.objects.filter(firm=firm, name__iexact=nm).first()
+        if existing:
+            return existing
+        return Product.objects.create(firm=firm, name=nm)
+
+    return None
+
+
 def import_stock_from_rows(firm: Firm, rows: list[dict], stdout) -> tuple[int, int, int]:
     """
     Match rows by item name (case-insensitive); read Stock / StockPcs / etc.
@@ -419,6 +604,10 @@ def import_stock_from_rows(firm: Firm, rows: list[dict], stdout) -> tuple[int, i
 
         stock_raw = _row_get(
             row,
+            "stock quantity",
+            "stockquantity",
+            "stock qty",
+            "stockqty",
             "stock",
             "stockpcs",
             "stock pcs",
@@ -428,14 +617,13 @@ def import_stock_from_rows(firm: Firm, rows: list[dict], stdout) -> tuple[int, i
         )
         target = _int_stock(stock_raw)
 
-        qs = Product.objects.filter(firm=firm, name__iexact=name)
-        if not qs.exists():
+        product = _resolve_product_for_stock_import(firm, name)
+        if product is None:
             missing += 1
             if len(missing_samples) < 15:
                 missing_samples.append(name[:120])
             continue
 
-        product = qs.first()
         res = _sync_product_stock_absolute(firm, product, target)
         if res == "updated":
             updated += 1
@@ -473,6 +661,14 @@ class Command(BaseCommand):
             action="store_true",
             help="Sync on-hand stock from XLS files that match each firm name and contain Stock / StockPcs columns",
         )
+        parser.add_argument(
+            "--refresh-customer-discounts",
+            action="store_true",
+            help=(
+                "Re-read customer/retailer XLS and set Customer.default_discount_percent "
+                "(matches 'Dis %%', discount columns) by shop name"
+            ),
+        )
 
     def handle(self, *args, **options):
         if options["import_stock"]:
@@ -503,6 +699,22 @@ class Command(BaseCommand):
                     return
             self._refresh_products_from_files(firms)
             self.stdout.write(self.style.SUCCESS("\nProduct refresh complete!"))
+            return
+
+        if options["refresh_customer_discounts"]:
+            firms = []
+            for fd in FIRMS:
+                try:
+                    firms.append(Firm.objects.get(code=fd["code"]))
+                except Firm.DoesNotExist:
+                    self.stderr.write(
+                        self.style.ERROR(
+                            f"Firm {fd['code']} not found – create firms first (run `python manage.py migratedata`)"
+                        )
+                    )
+                    return
+            self._refresh_customer_discounts_from_files(firms)
+            self.stdout.write(self.style.SUCCESS("\nCustomer discount refresh complete!"))
             return
 
         firms = []
@@ -620,6 +832,26 @@ class Command(BaseCommand):
                 rows = _read_excel(str(cf))
                 import_customers(firm, rows, self.stdout)
 
+    def _refresh_customer_discounts_from_files(self, firms: list[Firm]):
+        if not MIGRATION_DIR.exists():
+            self.stdout.write(self.style.WARNING(f"  migrationdata/ not found at {MIGRATION_DIR}"))
+            return
+        xls_files = [
+            f for f in MIGRATION_DIR.iterdir()
+            if f.suffix.lower() in (".xls", ".xlsx") and not f.name.startswith("~")
+        ]
+        customer_files = [f for f in xls_files if any(k in f.stem.lower() for k in ("customer", "retailer"))]
+        if not customer_files:
+            self.stdout.write(self.style.WARNING("  No customer/retailer XLS files in migrationdata/"))
+            return
+        for firm in firms:
+            self.stdout.write(f"\n  -- Refresh customer discounts for {firm.name} --")
+            firm_key = firm.name.lower()
+            for cf in [f for f in customer_files if self._file_matches_firm(f, firm_key)]:
+                self.stdout.write(f"  Updating from {cf.name} ...")
+                rows = _read_excel(str(cf))
+                refresh_customer_discounts_from_rows(firm, rows, self.stdout)
+
     def _refresh_products_from_files(self, firms: list[Firm]):
         if not MIGRATION_DIR.exists():
             self.stdout.write(self.style.WARNING(f"  migrationdata/ not found at {MIGRATION_DIR}"))
@@ -663,12 +895,14 @@ class Command(BaseCommand):
             for xf in xls_files:
                 if xf in product_files or xf in customer_files:
                     continue
+                # Avoid accidentally parsing large unrelated masters named "*corner*" etc.
+                if "stock" not in xf.stem.lower():
+                    continue
                 if not self._file_matches_firm(xf, firm_key):
                     continue
-                rows = _read_excel(str(xf))
+                rows = _read_stock_excel(str(xf))
                 if not _workbook_looks_like_stock_sheet(rows):
                     self.stdout.write(f"  Skip {xf.name} (no Stock / StockPcs columns)")
                     continue
                 self.stdout.write(f"  Applying stock from {xf.name} ...")
-                with transaction.atomic():
-                    import_stock_from_rows(firm, rows, self.stdout)
+                import_stock_from_rows(firm, rows, self.stdout)

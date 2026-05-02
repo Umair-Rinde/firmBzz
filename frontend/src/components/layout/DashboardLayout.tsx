@@ -84,10 +84,10 @@ export default function DashboardLayout() {
   }, [activeFirm, cookies.firm, setCookie]);
 
   const handleLogout = () => {
-    removeCookie("firm");
-    removeCookie("current_role");
+    removeCookie("firm", { path: "/" });
+    removeCookie("current_role", { path: "/" });
     logout();
-    navigate("/");
+    navigate("/", { replace: true, state: {} });
   };
 
   const menuItems = [

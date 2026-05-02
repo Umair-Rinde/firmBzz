@@ -32,6 +32,33 @@ const LoginSchema = Yup.object().shape({
   password: Yup.string().required("Password is required"),
 });
 
+/** Top-level /dashboard/:id segments that are routes, not firm slugs. */
+const DASHBOARD_NON_FIRM_SEGMENTS = new Set([
+  "create-firm",
+  "user-management",
+  "orders",
+  "distribution",
+]);
+
+/**
+ * Only reuse `from` after login if it still matches this session's firm.
+ * Otherwise we send users to the old firm's URL from ProtectedRoute state.
+ */
+function isSafeDashboardReturnPath(
+  fromPath: string | undefined,
+  sessionFirmSlug: string | undefined,
+): boolean {
+  if (!fromPath || !fromPath.startsWith("/dashboard")) return false;
+  const trimmed = fromPath.replace(/\/+$/, "");
+  if (trimmed === "/dashboard") return true;
+  const withoutPrefix = trimmed.slice("/dashboard".length).replace(/^\//, "");
+  if (!withoutPrefix) return true;
+  const firstSegment = withoutPrefix.split("/")[0];
+  if (DASHBOARD_NON_FIRM_SEGMENTS.has(firstSegment)) return true;
+  if (!sessionFirmSlug) return true;
+  return firstSegment === sessionFirmSlug;
+}
+
 export default function Login() {
   const location = useLocation();
   const { login, isAuthenticated, user } = useAuth();
@@ -46,7 +73,7 @@ export default function Login() {
     if (isAuthenticated && user) {
       const navigateToRoute = async () => {
         const from = (location.state as any)?.from?.pathname;
-        if (from) {
+        if (from && isSafeDashboardReturnPath(from, user.firm_slug ?? undefined)) {
           navigate(from, { replace: true });
         } else {
           const route = await getRoleBasedRoute(user.role, user.firm_slug);
@@ -123,15 +150,16 @@ export default function Login() {
       toast.success(resp?.data?.message || "Login Successful");
 
       const from = (location.state as any)?.from?.pathname;
-      if (from) {
+      const userRole = mapBackendRoleToFrontend(
+        userData.user_type,
+        userData.firm?.role,
+      );
+      const firmSlug = userData.firm?.slug;
+
+      if (from && isSafeDashboardReturnPath(from, firmSlug)) {
         navigate(from, { replace: true });
       } else {
-        const userRole = mapBackendRoleToFrontend(
-          userData.user_type,
-          userData.firm?.role,
-        );
-
-        getRoleBasedRoute(userRole, userData.firm?.slug).then((route) => {
+        getRoleBasedRoute(userRole, firmSlug).then((route) => {
           navigate(route, { replace: true });
         });
       }
